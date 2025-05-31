@@ -1,0 +1,38 @@
+variable "aws_region" {
+  description = "AWS region for resources"
+  type        = string
+  default = "af-south-1"
+}
+
+variable "vpc_cidr" {
+  default = "10.0.0.0/16"
+}
+
+variable "public_subnet_cidr" {
+  description = "CIDR block for public subnet"
+  default     = "10.0.1.0/24"
+}
+
+variable "private_subnet_cidr" {
+  description = "CIDR block for private subnet"
+  default     = "10.0.2.0/24"
+}
+
+variable "availability_zone_a" {
+  description = "Availability zone for public subnet"
+  default     = "af-south-1a"
+}
+
+variable "db_name" {
+    type = string
+    default = "todo-db"
+}
+
+variable "db_username" {
+    default = "/db_config/db_username"
+}
+
+variable "db_password" {
+    default = "/db_config/db_password"
+}
+
