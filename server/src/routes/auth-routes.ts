@@ -7,7 +7,7 @@ import { authenticateToken } from "../middleware";
 // Simple in-memory user store (use database in production)
 interface User {
     username: string;
-    password: string; // Add proper password hashing in production
+    password: string;
     twoFactorSecret: string;
 }
 
