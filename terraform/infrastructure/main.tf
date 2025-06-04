@@ -9,7 +9,7 @@ terraform {
 
   //get from bootstrap
     backend "s3" {
-    bucket = "terraform-state-app-todo-app"
+    bucket = "terraform-state-app-todo-app-v0"
     key    = "terraform.tfstate"
     region = "af-south-1"
     encrypt = true

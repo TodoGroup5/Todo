@@ -1,5 +1,5 @@
 aws_region      = "af-south-1"
-bucket_name     = "terraform-state-app-todo-app"
+bucket_name     = "terraform-state-app-todo-app-v0"
 github_repository = "TodoGroup5/Todo"
 github_actions_role_name      = "github-actions-terraform"
 terraform_policy_name         = "github-actions-terraform-state-policy"
