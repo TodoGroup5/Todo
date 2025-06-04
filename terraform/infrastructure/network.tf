@@ -14,10 +14,23 @@ resource "aws_subnet" "public" {
 }
 
 # Private Subnet for RDS
-resource "aws_subnet" "private" {
+resource "aws_subnet" "private_a" {
   vpc_id            = aws_vpc.main.id
-  cidr_block        = var.private_subnet_cidr
+  cidr_block        = var.private_subnet_cidr_a
   availability_zone = var.availability_zone_a
+}
+
+# Private Subnet for RDS - second AZ
+resource "aws_subnet" "private_b" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = var.private_subnet_cidr_b   
+  availability_zone = var.availability_zone_b    
+}
+
+# Update Route Table Association for the new subnet (optional, if private route table needed)
+resource "aws_route_table_association" "private_assoc_b" {
+  subnet_id      = aws_subnet.private_b.id
+  route_table_id = aws_route_table.private.id
 }
 
 # Internet Gateway

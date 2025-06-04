@@ -13,14 +13,24 @@ variable "public_subnet_cidr" {
   default     = "10.0.1.0/24"
 }
 
-variable "private_subnet_cidr" {
+variable "private_subnet_cidr_a" {
   description = "CIDR block for private subnet"
   default     = "10.0.2.0/24"
 }
 
+variable "private_subnet_cidr_b" {
+  description = "CIDR block for private subnet"
+  default     = "10.0.3.0/24"
+}
+
 variable "availability_zone_a" {
-  description = "Availability zone for public subnet"
+  description = "Availability zone a"
   default     = "af-south-1a"
+}
+
+variable "availability_zone_b" {
+  description = "Availability zone b"
+  default     = "af-south-1b"
 }
 
 variable "db_name" {

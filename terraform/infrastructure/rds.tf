@@ -10,10 +10,13 @@ data "aws_ssm_parameter" "db_password" {
 # DB Subnet Group
 resource "aws_db_subnet_group" "db_subnet_group" {
   name       = "rds-subnet-group"
-  subnet_ids = [aws_subnet.private.id]
+  subnet_ids = [
+    aws_subnet.private_a.id,
+    aws_subnet.private_b.id,
+  ]
 
   tags = {
-    Name = "Private DB Subnet Group"
+    Name = "RDS subnet group"
   }
 }
 
