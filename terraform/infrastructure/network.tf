@@ -27,12 +27,6 @@ resource "aws_subnet" "private_b" {
   availability_zone = var.availability_zone_b    
 }
 
-# Update Route Table Association for the new subnet (optional, if private route table needed)
-resource "aws_route_table_association" "private_assoc_b" {
-  subnet_id      = aws_subnet.private_b.id
-  route_table_id = aws_route_table.private.id
-}
-
 # Internet Gateway
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
@@ -59,8 +53,13 @@ resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 }
 
-resource "aws_route_table_association" "private_assoc" {
-  subnet_id      = aws_subnet.private.id
+resource "aws_route_table_association" "private_assoc_a" {
+  subnet_id      = aws_subnet.private_a.id
+  route_table_id = aws_route_table.private.id
+}
+
+resource "aws_route_table_association" "private_assoc_b" {
+  subnet_id      = aws_subnet.private_b.id
   route_table_id = aws_route_table.private.id
 }
 
@@ -82,6 +81,14 @@ resource "aws_security_group" "ec2_sg" {
     description = "Allow HTTPS"
     from_port   = 443
     to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Allow SSH"
+    from_port   = 22
+    to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
