@@ -12,6 +12,43 @@ provider "aws" {
   region = var.aws_region
 }
 
+resource "aws_budgets_budget" "my_budget_monthly" {
+  name              = "level-up-budget-enforcer"
+  budget_type       = "COST"
+  limit_amount      = "50.00"
+  limit_unit        = "USD"
+  time_unit         = "MONTHLY"
+
+  # Manual Forecast Notification 50%
+  # Forecasted cost > 50%
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 50
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "FORECASTED"
+    subscriber_email_addresses = local.subscribers
+  }
+
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 75
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "FORECASTED"
+    subscriber_email_addresses = local.subscribers
+  }
+
+  dynamic "notification" {
+    for_each = local.actual_thresholds
+    content {
+      comparison_operator        = "EQUAL_TO"
+      threshold                  = notification.value
+      threshold_type             = "PERCENTAGE"
+      notification_type          = "ACTUAL"
+      subscriber_email_addresses = local.subscribers
+    }
+  }
+}
+
 # S3 bucket for Terraform state
 resource "aws_s3_bucket" "terraform_state" {
   bucket = "${var.bucket_name}"
