@@ -6,6 +6,7 @@ import Login from './components/Login.tsx';
 import TwoFactorAuth from './components/TwoFactorAuth.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import './App.css';
+import Settings from './components/Settings.tsx';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -20,6 +21,7 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/2fa" element={<TwoFactorAuth />} />
+            <Route path="/settings" element={<Settings />} />
             <Route 
               path="/dashboard" 
               element={

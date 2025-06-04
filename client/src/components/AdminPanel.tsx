@@ -85,7 +85,7 @@ const AdminPanel: React.FC = () => {
     <div className="admin-panel">
       <h2>Role Management</h2>
       
-      <div className="panel-section">
+      {/* <div className="panel-section">
         <h3>Add New User</h3>
         <form onSubmit={handleAddUser} className="add-user-form">
           <input
@@ -105,7 +105,7 @@ const AdminPanel: React.FC = () => {
           </select>
           <button type="submit" className="btn-primary">Add User</button>
         </form>
-      </div>
+      </div> */}
 
       <div className="panel-section">
         <h3>Existing Users</h3>

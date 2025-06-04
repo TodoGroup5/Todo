@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState } from 'react';
+import type { ReactNode } from 'react';
 
 export interface User {
   id: string;
@@ -101,9 +102,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const getMockUser = (username: string): User => {
     const userRoles: Record<string, string[]> = {
-      'admin': ['access_admin'],
-      'teamlead': ['team_lead'],
-      'user': ['todo_user']
+      'greg': ['access_admin'],
+      'dino': ['team_lead'],
+      'cindi': ['todo_user']
     };
 
     return {
@@ -111,7 +112,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       username,
       roles: userRoles[username] || ['todo_user']
     };
-  };
+  }; 
 
   const isAuthenticated = !!user && !!token;
 

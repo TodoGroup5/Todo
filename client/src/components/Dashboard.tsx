@@ -3,9 +3,11 @@ import { useAuth } from '../contexts/AuthContext';
 import AdminPanel from './AdminPanel';
 import TeamLeadPanel from './TeamLeadPanel';
 import UserPanel from './UserPanel';
+import { useNavigate } from 'react-router-dom'; // Add this import
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate(); // Add this hook
 
   if (!user) return null;
 
@@ -29,9 +31,10 @@ const Dashboard: React.FC = () => {
           <h1>Dashboard</h1>
           <div className="user-info">
             <span>Welcome, {user.username}</span>
-            <span className="role-badge">
-              {user.roles.join(', ')}
-            </span>
+            <span className="role-badge">{user.roles.join(', ')}</span>
+            <button onClick={() => navigate('/settings')} className="btn-secondary">
+              Settings
+            </button>
             <button onClick={logout} className="btn-secondary">
               Logout
             </button>
@@ -39,11 +42,10 @@ const Dashboard: React.FC = () => {
         </div>
       </header>
 
-      <main className="dashboard-content">
-        {renderRoleBasedContent()}
-      </main>
+      <main className="dashboard-content">{renderRoleBasedContent()}</main>
     </div>
   );
 };
+
 
 export default Dashboard;

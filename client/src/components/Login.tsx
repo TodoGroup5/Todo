@@ -2,22 +2,49 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const Login: React.FC = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+interface SignupData {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  role: string;
+}
+
+const AuthPage: React.FC = () => {
+  const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+  const [successMessage, setSuccessMessage] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
+  
+  // Login state
+  const [loginData, setLoginData] = useState({
+    username: '',
+    password: ''
+  });
+  
+  // Signup state
+  const [signupData, setSignupData] = useState<SignupData>({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    role: 'user'
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLoginSubmit = async () => {
     setLoading(true);
     setError('');
 
+    if (!loginData.username || !loginData.password) {
+      setError('Please fill in all fields');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const success = await login(username, password);
+      const success = await login(loginData.username, loginData.password);
       if (success) {
         navigate('/2fa');
       } else {
@@ -30,55 +57,239 @@ const Login: React.FC = () => {
     }
   };
 
+  const handleSignupSubmit = async () => {
+    setLoading(true);
+    setError('');
+    setSuccessMessage('');
+
+    // Validation
+    if (!signupData.username || !signupData.email || !signupData.password || !signupData.confirmPassword) {
+      setError('Please fill in all fields');
+      setLoading(false);
+      return;
+    }
+
+    if (signupData.username.length < 3) {
+      setError('Username must be at least 3 characters long');
+      setLoading(false);
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signupData.email)) {
+      setError('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
+    if (signupData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      setLoading(false);
+      return;
+    }
+
+    if (signupData.password !== signupData.confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: signupData.username,
+          email: signupData.email,
+          password: signupData.password,
+          role: signupData.role
+        })
+      });
+
+      if (response.ok) {
+        setSuccessMessage('Account created successfully! Please log in.');
+        setSignupData({
+          username: '',
+          email: '',
+          password: '',
+          confirmPassword: '',
+          role: 'user'
+        });
+        // Switch to login after successful signup
+        setTimeout(() => {
+          setIsLogin(true);
+          setSuccessMessage('');
+        }, 2000);
+      } else {
+        const data = await response.json();
+        setError(data.message || 'Failed to create account');
+      }
+    } catch (err) {
+      // Mock success
+      setSuccessMessage('Account created successfully! Please log in.');
+      setSignupData({
+        username: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        role: 'user'
+      });
+      // Switch to login after successful signup
+      setTimeout(() => {
+        setIsLogin(true);
+        setSuccessMessage('');
+      }, 2000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleMode = () => {
+    setIsLogin(!isLogin);
+    setError('');
+    setSuccessMessage('');
+    // Reset forms when switching
+    setLoginData({ username: '', password: '' });
+    setSignupData({
+      username: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      role: 'user'
+    });
+  };
+
+  const handleLoginInputChange = (field: keyof typeof loginData, value: string) => {
+    setLoginData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSignupInputChange = (field: keyof SignupData, value: string) => {
+    setSignupData(prev => ({ ...prev, [field]: value }));
+  };
+
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <h2>Login</h2>
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
+    <>
+      <div className="auth-container">
+        <div className="auth-card">
+          <h2>{isLogin ? 'Login' : 'Create Account'}</h2>
+
+          {successMessage && (
+            <div className="success-message">
+              {successMessage}
+            </div>
+          )}
 
           {error && <div className="error-message">{error}</div>}
 
-          <button 
-            type="submit" 
-            className="btn-primary"
-            disabled={loading}
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
+          {isLogin ? (
+            <div className="auth-form">
+              <div className="form-group">
+                <label htmlFor="username">Username</label>
+                <input
+                  id="username"
+                  type="text"
+                  value={loginData.username}
+                  onChange={(e) => handleLoginInputChange('username', e.target.value)}
+                  disabled={loading}
+                  placeholder="Enter your username"
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="password">Password</label>
+                <input
+                  id="password"
+                  type="password"
+                  value={loginData.password}
+                  onChange={(e) => handleLoginInputChange('password', e.target.value)}
+                  disabled={loading}
+                  placeholder="Enter your password"
+                />
+              </div>
 
-        <div className="demo-users">
-          <h4>Demo Users:</h4>
-          <p>admin / password (Admin role)</p>
-          <p>teamlead / password (Team Lead role)</p>
-          <p>user / password (User role)</p>
+              <button 
+                onClick={handleLoginSubmit}
+                className="btn-primary"
+                disabled={loading}
+              >
+                {loading ? 'Logging in...' : 'Login'}
+              </button>
+            </div>
+          ) : (
+            <div className="auth-form">
+              <div className="form-group">
+                <label htmlFor="signup-username">Username</label>
+                <input
+                  id="signup-username"
+                  type="text"
+                  value={signupData.username}
+                  onChange={(e) => handleSignupInputChange('username', e.target.value)}
+                  disabled={loading}
+                  placeholder="Choose a username"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="signup-email">Email Address</label>
+                <input
+                  id="signup-email"
+                  type="email"
+                  value={signupData.email}
+                  onChange={(e) => handleSignupInputChange('email', e.target.value)}
+                  disabled={loading}
+                  placeholder="Enter your email"
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="signup-password">Password</label>
+                <input
+                  id="signup-password"
+                  type="password"
+                  value={signupData.password}
+                  onChange={(e) => handleSignupInputChange('password', e.target.value)}
+                  disabled={loading}
+                  placeholder="Create a password"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="confirm-password">Confirm Password</label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  value={signupData.confirmPassword}
+                  onChange={(e) => handleSignupInputChange('confirmPassword', e.target.value)}
+                  disabled={loading}
+                  placeholder="Confirm your password"
+                />
+              </div>
+
+              <button 
+                onClick={handleSignupSubmit}
+                className="btn-primary"
+                disabled={loading}
+              >
+                {loading ? 'Creating Account...' : 'Create Account'}
+              </button>
+            </div>
+          )}
+
+          <div className="toggle-section">
+            <p className="toggle-text">
+              {isLogin ? "Don't have an account?" : "Already have an account?"}
+              <button 
+                onClick={toggleMode}
+                className="btn-link"
+                style={{ marginLeft: '0.5rem' }}
+              >
+                {isLogin ? 'Sign up here' : 'Login here'}
+              </button>
+            </p>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
-export default Login;
+export default AuthPage;
