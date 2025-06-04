@@ -22,7 +22,7 @@ resource "aws_db_subnet_group" "db_subnet_group" {
 
 # RDS PostgreSQL Instance
 resource "aws_db_instance" "postgres" {
-  identifier              = "my-postgres-db"
+  identifier              = "todogroup5-db"
   engine                  = "postgres"
   instance_class          = "db.t3.micro"
   allocated_storage       = 20
