@@ -26,6 +26,7 @@ export type CallName =
 
 // API-side interface for calling DB procs
 export type ParamName = string;
+export type CallType = "func" | "proc";
 export type CallData = {
   call: CallName;
   params: { [key: ParamName]: unknown };
@@ -105,7 +106,7 @@ export async function callDBRaw<T extends QueryResultRow>(
   pool: Pool | Client,              // Postgres connection pool
   callName: string,
   params: RawParams = [],
-  callType: "func" | "proc" = "func",
+  callType: CallType = "func",
   page: number = 0,                 // ignored for procs
   itemsPerPage: number = 100        // ignored for procs
 ): Promise<RawResult<T> | null> {
