@@ -1,6 +1,6 @@
 import type { Pool, Client, QueryResult, QueryResultRow, FieldDef } from 'pg';
 import type { ZodType } from 'zod';
-import { VALIDATOR_SETS } from './callValidators.ts';
+import { VALIDATOR_SETS } from './callValidators.js';
 
 
 //---------- Types ----------//

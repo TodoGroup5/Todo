@@ -10,8 +10,9 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "resolveJsonModule": true,
+    "isolatedModules": true,
   },
-  "include": ["src/**/*", "src/index.ts"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

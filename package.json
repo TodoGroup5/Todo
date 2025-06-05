@@ -2,10 +2,11 @@
   "name": "todo-app",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "main": "index.ts",
   "scripts": {
     "start": "webpack serve --open",
-    "dev": "ts-node-dev --watch --poll --respawn --transpile-only src/index.ts"
+    "dev": "tsx watch src/index.ts"
   },
   "author": "",
   "license": "ISC",
@@ -23,6 +24,7 @@
     "@types/lodash": "^4.17.0",
     "@types/pg": "^8.15.4",
     "ts-loader": "^9.5.1",
+    "tsx": "^4.19.4",
     "webpack": "^5.91.0",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^5.0.4"

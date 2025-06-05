@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CallName, ParamValidator } from "./db.ts";
+import type { CallName, ParamValidator } from "./db.js";
 
 const str = z.string().max(2048);
 const date = z.date();

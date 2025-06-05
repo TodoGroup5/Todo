@@ -1,5 +1,5 @@
 import express from 'express';
-import router from './endpoints.ts';
+import router from './endpoints.js';
 
 //---------- Setup ----------//
 const app = express();
