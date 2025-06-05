@@ -134,3 +134,12 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Nix stuff
+.direnv
+
+# VSCode settings
+.vscode
+
+# Flyway reports
+migrations/report.*
