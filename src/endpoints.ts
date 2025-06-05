@@ -1,17 +1,19 @@
 import { Pool } from 'pg';
 import { type Request, type Response, Router } from 'express';
-import { callDB, CallName, CallType, type JSONResult } from './db.js';
+import { CallData, callDB, CallName, CallType, ParamValidator, parseParams, ParseParamsResult, type JSONResult } from './db.js';
 import { Repetitions } from './types.js';
+import { z_email, z_str } from './callValidators.js';
+import { AuthenticatedRequest, authenticateToken, comparePassHash, genJWT, hashPassword } from './auth.js';
 
 
 //==================== Setup DB connection ====================//
 const router = Router();
 const dbPool = new Pool({
-  database: 'todo_db',
-  host: 'localhost',
-  port: 5432,
-  user: 'postgres',
-  password: 'postgres'
+  database: process.env.DB_NAME ?? "todo_db",
+  host:     process.env.DB_HOST ?? "localhost",
+  port:     Number(process.env.DB_PORT ?? "5432"),
+  user:     process.env.DB_USER ?? "postgres",
+  password: process.env.DB_PASS ?? "postgres"
 });
 
 
@@ -25,8 +27,6 @@ function sendResponse<S, F>(
   const success = (result.status === 'success');
   res.status(success ? 200 : failCode).json(success ? formatter(result.data) : result);
 };
-
-router.get('/health', (req: Request, res: Response) => { res.status(200).json("working 😎"); });
 
 type ParamsDict<T = unknown> = { [key: string]: T };
 type ParamFormatter<I = unknown, O = unknown> = (x: ParamsDict) => ParamsDict;
@@ -52,6 +52,60 @@ type Space = Repetitions<" ", 20>;
 type EasyEndpointMap = { [key: `${Uppercase<Method>}${Space}/${string}`]: [CallType, CallName] | [CallType, CallName, ParamFormatter] };
 
 //==================== API endpoints ====================//
+
+router.get('/health', (req: Request, res: Response) => { res.status(200).json("working 😎"); });
+
+
+router.post('/login', async (req: Request, res: Response) => {
+  const call: CallData = { type: 'proc', call: "delete_local_role", params: req.body };
+  const expected: ParamValidator[] = [
+    ["email", z_email],
+    ["password", z_str]
+  ];
+
+  const parseRes: ParseParamsResult = parseParams(call, expected);
+  if (parseRes.status === "failed") {
+    // TODO: Handle
+    res.status(500).json({ status: 'failed', error: 'invalidParams', data: parseRes.invalid });
+  }
+  else {
+  }
+
+  const result = await callDB(dbPool, call);
+  sendResponse(res, result);
+});
+
+//---------- Authentication ----------//
+
+interface User { id: number; email: string; passwordHash: string; }
+
+const users: User[] = [ { id: 1, email: "user@example.com", passwordHash: "" } ];
+(async () => users[0].passwordHash = await hashPassword("password123"))();
+
+// ===== LOGIN ROUTE =====
+router.post('/login', async (req: Request, res: Response) => {
+
+  // Get user details
+  const { email, password } = req.body as { email: string; password: string };
+  const user = users.find((u) => u.email === email);
+  if (user == null) return;
+
+  // Check password
+  if (!comparePassHash(password, user.passwordHash)) {
+    res.status(401).json({ message: "Invalid credentials" });
+  }
+
+  // Generate & return JWT
+  res.json({ token: genJWT(user?.id, user?.email) });
+});
+
+
+// Example protected route
+router.get("/profile", authenticateToken, (req: AuthenticatedRequest, res: Response) => {
+  res.json({ message: "Welcome!", user: (req as AuthenticatedRequest).user });
+});
+
+
 
 const easyEndpoints: EasyEndpointMap = {
   //--------------- Users ---------------//
@@ -114,8 +168,3 @@ Object.entries(easyEndpoints).forEach(([id, [type, call, fmt]]) => {
 });
 
 export default router;
-
-// NOTE: Manual implementation for reference:
-//    router.post('/user/create', async (req: Request, res: Response) => 
-//      sendResponse(res, await callDB(dbPool, { type: 'proc', call: "delete_local_role", params: req.body }))
-//    );
