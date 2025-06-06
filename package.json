@@ -5,8 +5,11 @@
   "type": "module",
   "main": "index.ts",
   "scripts": {
-    "start": "webpack serve --open",
-    "dev": "tsx watch src/index.ts"
+    "start":"node dist/server.js",
+    "dev": "tsx watch src/index.ts",
+    "build-server":"webpack --config webpack.config.js",
+    "build-client": "npm run build --prefix client",
+    "build":"npm run build-client && npm run build-server"
   },
   "author": "",
   "license": "ISC",

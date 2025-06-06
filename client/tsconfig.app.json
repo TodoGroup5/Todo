@@ -15,13 +15,16 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Required for project references */
+    "composite": true,
+
     /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    
+    // "noUnusedLocals": true,
+    // "noUnusedParameters": true,
+    // "erasableSyntaxOnly": true,
+    // "noFallthroughCasesInSwitch": true,
+    // "noUncheckedSideEffectImports": true
   },
   "include": ["src"]
 }

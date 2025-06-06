@@ -102,7 +102,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
 // Example protected route
 router.get("/profile", authenticateToken, (req: AuthenticatedRequest, res: Response) => {
-  res.json({ message: "Welcome!", user: (req as AuthenticatedRequest).user });
+  res.json({ message: "Welcome!", user: req.user });
 });
 
 
