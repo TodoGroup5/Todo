@@ -9,7 +9,7 @@ export type RawParams = (string | number | boolean | Date | null)[];
 export type RawResult<T extends QueryResultRow> = QueryResult<T>;
 
 // Either (success + data)/(failure + error)
-export type JSONResult<S = undefined, F = S> = (
+export type JSONResult<S = undefined, F = undefined> = (
   { status: 'success'; data?: S; } |
   { status: 'failed'; error: string; data?: F }
 );
@@ -43,7 +43,7 @@ export type ParseParamsResult = (
   { status: 'failed'; invalid: InvalidList }
 );
 
-type TableResult = { fields: FieldDef[], rows: unknown[] };
+export type TableResult = { data: {[key: string]: unknown}[] };
 
 function isZodType(x: any): x is ZodType {
   return (typeof x?.safeParse === 'function');
@@ -145,7 +145,7 @@ export async function callDB (
   // Attempt DB call
   try {
     const res = await callDBRaw(pool, call.call, rawParams.params, call.type, (call as any).page ?? undefined, (call as any).itemsPerPage ?? undefined);
-    return { status: 'success', data: { fields: res?.fields ?? [], rows: res?.rows ?? [] } };
+    return { status: 'success', data: { data: res?.rows ?? [] } };
   }
   catch (error: any) {
     return { status: 'failed', error: 'dbCallFailed', data: error.message };

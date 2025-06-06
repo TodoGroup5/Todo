@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { CrudService } from '../api/crudService.ts';
 
 interface Todo {
-  id: string;
+  id: number;
   title: string;
   description: string;
-  status: 'pending' | 'in-progress' | 'completed';
-  assignedTo: string;
-  createdBy: string;
-  createdAt: string;
+  status: string;
+  assigned_to: number;
+  created_by: number;
+  created_at: string;
 }
+
+// Either (success + data)/(failure + error)
+export type JSONResult<S = undefined, F = undefined> = (
+  { status: 'success'; data?: S; } |
+  { status: 'failed'; error: string; data?: F }
+);
 
 const TeamLeadPanel: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -25,41 +32,15 @@ const TeamLeadPanel: React.FC = () => {
   }, []);
 
   const fetchTeamTodos = async () => {
+    const teamId: number = 1;
     try {
-      const response = await fetch('/api/team/todos');
-      const data = await response.json();
-      setTodos(data);
+      const response = await CrudService.read<JSONResult<Todo[]>>(`/team/${teamId}/todos`);
+      if (response.error) throw new Error(response.error);
+      console.log(response.data?.data)
+      setTodos(response.data?.data ?? []);
+      console.log("aaaahhhhh", todos);
     } catch (error) {
-      // Mock data for demo
-      setTodos([
-        {
-          id: '1',
-          title: 'Complete project proposal',
-          description: 'Draft and submit the Q2 project proposal',
-          status: 'in-progress',
-          assignedTo: 'john_doe',
-          createdBy: 'teamlead',
-          createdAt: '2024-01-15'
-        },
-        {
-          id: '2',
-          title: 'Code review',
-          description: 'Review the authentication module',
-          status: 'pending',
-          assignedTo: 'jane_smith',
-          createdBy: 'teamlead',
-          createdAt: '2024-01-16'
-        },
-        {
-          id: '3',
-          title: 'Update documentation',
-          description: 'Update API documentation with new endpoints',
-          status: 'completed',
-          assignedTo: 'bob_wilson',
-          createdBy: 'john_doe',
-          createdAt: '2024-01-14'
-        }
-      ]);
+      console.log("Failed to fetch todos");
     } finally {
       setLoading(false);
     }
@@ -84,21 +65,13 @@ const TeamLeadPanel: React.FC = () => {
       const todo = await response.json();
       setTodos([...todos, todo]);
     } catch (error) {
-      // Mock create for demo
-      const mockTodo: Todo = {
-        id: Date.now().toString(),
-        ...newTodo,
-        status: 'pending',
-        createdBy: 'teamlead',
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      setTodos([...todos, mockTodo]);
+       console.log("Could not create todo");
     }
 
     setNewTodo({ title: '', description: '', assignedTo: '' });
   };
 
-  const handleStatusChange = async (todoId: string, newStatus: Todo['status']) => {
+  const handleStatusChange = async (todoId: number, newStatus: Todo['status']) => {
     try {
       await fetch(`/api/team/todos/${todoId}`, {
         method: 'PATCH',
@@ -172,9 +145,9 @@ const TeamLeadPanel: React.FC = () => {
               </div>
               <p className="todo-description">{todo.description}</p>
               <div className="todo-meta">
-                <span>Assigned to: <strong>{todo.assignedTo}</strong></span>
-                <span>Created by: {todo.createdBy}</span>
-                <span>Date: {todo.createdAt}</span>
+                <span>Assigned to: <strong>{todo.assigned_to}</strong></span>
+                <span>Created by: {todo.created_by}</span>
+                <span>Date: {todo.created_at}</span>
               </div>
             </div>
           ))}

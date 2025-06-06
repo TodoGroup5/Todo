@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 import { type Request, type Response, Router } from 'express';
-import { CallData, callDB, CallName, CallType, ParamValidator, parseParams, ParseParamsResult, type JSONResult } from './db.js';
+import { CallData, callDB, CallName, CallType, InvalidList, ParamValidator, parseParams, ParseParamsResult, TableResult, type JSONResult } from './db.js';
 import { Repetitions } from './types.js';
 import { z_email, z_str } from './callValidators.js';
 import { AuthenticatedRequest, authenticateToken, comparePassHash, genJWT, hashPassword } from './auth.js';
@@ -9,23 +9,23 @@ import { AuthenticatedRequest, authenticateToken, comparePassHash, genJWT, hashP
 //==================== Setup DB connection ====================//
 const router = Router();
 const dbPool = new Pool({
-  database: process.env.DB_NAME ?? "todo_db",
-  host:     process.env.DB_HOST ?? "localhost",
-  port:     Number(process.env.DB_PORT ?? "5432"),
-  user:     process.env.DB_USER ?? "postgres",
-  password: process.env.DB_PASS ?? "postgres"
+  database: process.env.DB_NAME || "todo_db",
+  host:     process.env.DB_HOST || "localhost",
+  port:     Number(process.env.DB_PORT || "5432"),
+  user:     process.env.DB_USER || "postgres",
+  password: process.env.DB_PASS || "postgres"
 });
 
 
 // Helper function to handle responses
 function sendResponse<S, F>(
-  res: Response,
+  res: Response<JSONResult<S, F>>,
   result: JSONResult<S, F>,
   failCode: number = 500,
   formatter: (r?: S) => any = (r => r)    // Optionally format the result upon success
 ) {
   const success = (result.status === 'success');
-  res.status(success ? 200 : failCode).json(success ? formatter(result.data) : result);
+  res.status(success ? 200 : failCode).json(success ? {status: "success", data: formatter(result.data)} : result);
 };
 
 type ParamsDict<T = unknown> = { [key: string]: T };
