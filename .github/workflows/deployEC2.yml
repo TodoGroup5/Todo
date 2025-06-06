@@ -21,17 +21,14 @@ jobs:
         
     - name: Install dependencies
       run: |
-       cd server
        npm ci
       
     - name: Build application
       run: |
-        cd server
         npm run build
       
     - name: Create deployment package
       run: |
-        cd server
         tar -czf deploy.tar.gz dist
           
     - name: Copy files to EC2
@@ -48,7 +45,7 @@ jobs:
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
+        username: ec2-user
         key: ${{ secrets.EC2_SSH_KEY }}
         port: 22
         script: |
