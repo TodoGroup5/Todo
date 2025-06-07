@@ -305,7 +305,7 @@ CREATE OR REPLACE FUNCTION get_team_todos(p_team_id INTEGER)
 RETURNS TABLE (id INTEGER, created_by INTEGER, assigned_to INTEGER, team_id INTEGER, title VARCHAR, description VARCHAR, status INTEGER, due_date DATE, is_deleted BOOLEAN, created_at TIMESTAMP, updated_at TIMESTAMP, completed_at TIMESTAMP) AS $$
 BEGIN
     RETURN QUERY
-    SELECT * FROM todos WHERE team_id = p_team_id AND is_deleted = FALSE;
+    SELECT * FROM todos AS t WHERE t.team_id = p_team_id AND t.is_deleted = FALSE;
 END;
 $$ LANGUAGE plpgsql;
 

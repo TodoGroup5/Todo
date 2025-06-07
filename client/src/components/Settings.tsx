@@ -1,24 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import { CrudService } from '../api/crudService.ts';
 
 interface UserSettings {
-  username: string;
+  id: number;
+  name: string;
   email: string;
-  twoFactorEnabled: boolean;
-  accountCreated: string;
-  lastLogin: string;
-  role: string;
+  two_fa_secret: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface UserRole {
+  user_id: number;
+  role_id: number;
+  role_name: string;
 }
 
 const Settings: React.FC = () => {
-  const [userSettings, setUserSettings] = useState<UserSettings>({
-    username: '',
-    email: '',
-    twoFactorEnabled: false,
-    accountCreated: '',
-    lastLogin: '',
-    role: ''
-  });
-  
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -27,45 +27,60 @@ const Settings: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   
   const [formData, setFormData] = useState({
-    username: '',
+    name: '',
     email: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
 
+  // You'll need to get this from your auth context/token
+  const currentUserId = 1; // Replace with actual user ID from auth
+
   useEffect(() => {
     fetchUserSettings();
+    fetchUserRoles();
   }, []);
 
   const fetchUserSettings = async () => {
     try {
-      const response = await fetch('/api/user/settings');
-      const data = await response.json();
-      setUserSettings(data);
-      setFormData(prev => ({
-        ...prev,
-        username: data.username,
-        email: data.email
-      }));
-    } catch (error) {
-      // Mock data for demo
-      const mockSettings: UserSettings = {
-        username: 'john_doe',
-        email: 'john@example.com',
-        twoFactorEnabled: false,
-        accountCreated: '2023-06-15',
-        lastLogin: '2024-01-20',
-        role: 'User'
-      };
-      setUserSettings(mockSettings);
-      setFormData(prev => ({
-        ...prev,
-        username: mockSettings.username,
-        email: mockSettings.email
-      }));
+      const response = await CrudService.read(`/user/${currentUserId}`);
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.data == null) return;
+
+      console.log("USER SETTINGS:", response.data);
+
+      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
+
+      const userData = response.data.data;
+      if (userData && userData.length > 0) {
+        setUserSettings(userData[0]);
+        setFormData(prev => ({
+          ...prev,
+          name: userData[0].name,
+          email: userData[0].email
+        }));
+      }
+    } catch (err) {
+      console.log("Failed to fetch user settings", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserRoles = async () => {
+    try {
+      const response = await CrudService.read(`/user/${currentUserId}/global-roles`);
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.data == null) return;
+
+      console.log("USER ROLES:", response.data);
+
+      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
+
+      setUserRoles(response.data.data ?? []);
+    } catch (err) {
+      console.log("Failed to fetch user roles", err);
     }
   };
 
@@ -82,8 +97,8 @@ const Settings: React.FC = () => {
     setSuccessMessage('');
 
     // Basic validation
-    if (formData.username.length < 3) {
-      setErrorMessage('Username must be at least 3 characters long');
+    if (formData.name.length < 2) {
+      setErrorMessage('Name must be at least 2 characters long');
       setUpdateLoading(false);
       return;
     }
@@ -95,36 +110,31 @@ const Settings: React.FC = () => {
     }
 
     try {
-      const response = await fetch('/api/user/settings/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: formData.username,
-          email: formData.email
-        })
-      });
-
-      if (response.ok) {
-        setUserSettings(prev => ({
-          ...prev,
-          username: formData.username,
-          email: formData.email
-        }));
-        setSuccessMessage('Profile updated successfully!');
-      } else {
-        throw new Error('Failed to update profile');
-      }
-    } catch (error) {
-      // Mock success for demo
-      setUserSettings(prev => ({
-        ...prev,
-        username: formData.username,
+      const updateData = {
+        name: formData.name,
         email: formData.email
-      }));
+      };
+
+      const response = await CrudService.update('/user', currentUserId, updateData);
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.data == null) return;
+
+      console.log("UPDATE RESPONSE:", response.data);
+
+      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
+
+      // Refresh user settings
+      fetchUserSettings();
       setSuccessMessage('Profile updated successfully!');
+    } catch (err) {
+      console.log("Failed to update profile", err);
+      setErrorMessage('Failed to update profile');
     } finally {
       setUpdateLoading(false);
-      setTimeout(() => setSuccessMessage(''), 3000);
+      setTimeout(() => {
+        setSuccessMessage('');
+        setErrorMessage('');
+      }, 3000);
     }
   };
 
@@ -152,28 +162,21 @@ const Settings: React.FC = () => {
     }
 
     try {
-      const response = await fetch('/api/user/settings/password', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentPassword: formData.currentPassword,
-          newPassword: formData.newPassword
-        })
+      // You'll need to create a custom endpoint for password changes
+      // as it requires special handling with password hashing
+      const response = await CrudService.customRequest('/user/change-password', 'POST', {
+        user_id: currentUserId,
+        current_password: formData.currentPassword,
+        new_password: formData.newPassword
       });
 
-      if (response.ok) {
-        setSuccessMessage('Password updated successfully!');
-        setFormData(prev => ({
-          ...prev,
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        }));
-      } else {
-        throw new Error('Failed to update password');
-      }
-    } catch (error) {
-      // Mock success for demo
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.data == null) return;
+
+      console.log("PASSWORD CHANGE RESPONSE:", response.data);
+
+      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
+
       setSuccessMessage('Password updated successfully!');
       setFormData(prev => ({
         ...prev,
@@ -181,32 +184,47 @@ const Settings: React.FC = () => {
         newPassword: '',
         confirmPassword: ''
       }));
+    } catch (err) {
+      console.log("Failed to update password", err);
+      setErrorMessage('Failed to update password');
     } finally {
       setUpdateLoading(false);
-      setTimeout(() => setSuccessMessage(''), 3000);
+      setTimeout(() => {
+        setSuccessMessage('');
+        setErrorMessage('');
+      }, 3000);
     }
   };
 
   const handleToggle2FA = async () => {
-    if (!userSettings.twoFactorEnabled) {
+    const twoFactorEnabled = !!userSettings?.two_fa_secret;
+    
+    if (!twoFactorEnabled) {
       setShowQR(true);
     } else {
       try {
-        const response = await fetch('/api/user/settings/2fa/disable', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
+        // Remove 2FA secret by updating user with null value
+        const response = await CrudService.update('/user', currentUserId, {
+          two_fa_secret: null
         });
 
-        if (response.ok) {
-          setUserSettings(prev => ({ ...prev, twoFactorEnabled: false }));
-          setSuccessMessage('Two-factor authentication disabled');
-        }
-      } catch (error) {
-        // Mock success for demo
-        setUserSettings(prev => ({ ...prev, twoFactorEnabled: false }));
+        if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+        if (response.data == null) return;
+
+        console.log("2FA DISABLE RESPONSE:", response.data);
+
+        if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
+
+        fetchUserSettings(); // Refresh to get updated data
         setSuccessMessage('Two-factor authentication disabled');
+      } catch (err) {
+        console.log("Failed to disable 2FA", err);
+        setErrorMessage('Failed to disable 2FA');
       }
-      setTimeout(() => setSuccessMessage(''), 3000);
+      setTimeout(() => {
+        setSuccessMessage('');
+        setErrorMessage('');
+      }, 3000);
     }
   };
 
@@ -217,30 +235,24 @@ const Settings: React.FC = () => {
     }
 
     try {
-      const response = await fetch('/api/user/settings/2fa/enable', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: twoFactorCode })
+      const response = await CrudService.update('/user', currentUserId, {
+        two_fa_secret: 'DEMO_SECRET_' + Date.now()
       });
 
-      if (response.ok) {
-        setUserSettings(prev => ({ ...prev, twoFactorEnabled: true }));
-        setShowQR(false);
-        setTwoFactorCode('');
-        setSuccessMessage('Two-factor authentication enabled successfully!');
-      } else {
-        throw new Error('Invalid code');
-      }
-    } catch (error) {
-      // Mock success for demo
-      if (twoFactorCode === '123456') {
-        setUserSettings(prev => ({ ...prev, twoFactorEnabled: true }));
-        setShowQR(false);
-        setTwoFactorCode('');
-        setSuccessMessage('Two-factor authentication enabled successfully!');
-      } else {
-        setErrorMessage('Invalid verification code. Try: 123456');
-      }
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.data == null) return;
+
+      console.log("2FA ENABLE RESPONSE:", response.data);
+
+      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
+
+      fetchUserSettings(); // Refresh to get updated data
+      setShowQR(false);
+      setTwoFactorCode('');
+      setSuccessMessage('Two-factor authentication enabled successfully!');
+    } catch (err) {
+      console.log("Failed to enable 2FA", err);
+      setErrorMessage('Failed to enable 2FA');
     }
     setTimeout(() => {
       setSuccessMessage('');
@@ -248,7 +260,20 @@ const Settings: React.FC = () => {
     }, 3000);
   };
 
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const getPrimaryRole = (): string => {
+    if (userRoles.length === 0) return 'User';
+    return userRoles[0].role_name;
+  };
+
   if (loading) return <div className="dashboard-content">Loading settings...</div>;
+
+  if (!userSettings) return <div className="dashboard-content">Error loading user settings</div>;
+
+  const twoFactorEnabled = !!userSettings.two_fa_secret;
 
   return (
     <div className="dashboard-content">
@@ -276,15 +301,15 @@ const Settings: React.FC = () => {
 
         <div className="panel-section">
           <h3>Update Profile Information</h3>
-          <div onSubmit={handleUpdateProfile} className="todo-form">
+          <div className="todo-form">
             <div className="form-group">
-              <label htmlFor="username">Username</label>
+              <label htmlFor="name">Name</label>
               <input
-                id="username"
+                id="name"
                 type="text"
-                value={formData.username}
-                onChange={(e) => handleInputChange('username', e.target.value)}
-                placeholder="Enter username"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="Enter name"
               />
             </div>
             <div className="form-group">
@@ -354,17 +379,17 @@ const Settings: React.FC = () => {
           <h3>Two-Factor Authentication (2FA)</h3>
           <div style={{ marginBottom: '1rem' }}>
             <p style={{ marginBottom: '1rem' }}>
-              Status: <strong style={{ color: userSettings.twoFactorEnabled ? '#38a169' : '#c53030' }}>
-                {userSettings.twoFactorEnabled ? 'Enabled' : 'Disabled'}
+              Status: <strong style={{ color: twoFactorEnabled ? '#38a169' : '#c53030' }}>
+                {twoFactorEnabled ? 'Enabled' : 'Disabled'}
               </strong>
             </p>
             
             {!showQR ? (
               <button 
                 onClick={handleToggle2FA}
-                className={userSettings.twoFactorEnabled ? 'btn-secondary' : 'btn-primary'}
+                className={twoFactorEnabled ? 'btn-secondary' : 'btn-primary'}
               >
-                {userSettings.twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
+                {twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
               </button>
             ) : (
               <div>
@@ -404,7 +429,7 @@ const Settings: React.FC = () => {
                       className="code-input"
                       maxLength={6}
                     />
-                    <small style={{ color: '#718096' }}>Demo: Use code "123456"</small>
+                    <small style={{ color: '#718096' }}>Demo: Use any 6-digit code</small>
                   </div>
                   <div className="form-actions">
                     <button onClick={handleEnable2FA} className="btn-primary">
@@ -431,8 +456,8 @@ const Settings: React.FC = () => {
           <h3>Account Information</h3>
           <div className="users-table">
             <div className="table-row">
-              <strong>Username:</strong>
-              <span>{userSettings.username}</span>
+              <strong>Name:</strong>
+              <span>{userSettings.name}</span>
             </div>
             <div className="table-row">
               <strong>Email:</strong>
@@ -440,20 +465,20 @@ const Settings: React.FC = () => {
             </div>
             <div className="table-row">
               <strong>Role:</strong>
-              <span className="role-badge">{userSettings.role}</span>
+              <span className="role-badge">{getPrimaryRole()}</span>
             </div>
             <div className="table-row">
               <strong>Account Created:</strong>
-              <span>{userSettings.accountCreated}</span>
+              <span>{formatDate(userSettings.created_at)}</span>
             </div>
             <div className="table-row">
-              <strong>Last Login:</strong>
-              <span>{userSettings.lastLogin}</span>
+              <strong>Last Updated:</strong>
+              <span>{formatDate(userSettings.updated_at)}</span>
             </div>
             <div className="table-row">
               <strong>2FA Status:</strong>
-              <span style={{ color: userSettings.twoFactorEnabled ? '#38a169' : '#c53030' }}>
-                {userSettings.twoFactorEnabled ? 'Enabled' : 'Disabled'}
+              <span style={{ color: twoFactorEnabled ? '#38a169' : '#c53030' }}>
+                {twoFactorEnabled ? 'Enabled' : 'Disabled'}
               </span>
             </div>
           </div>

@@ -1,13 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { CrudService } from '../api/crudService.ts';
 
 interface Todo {
-  id: string;
+  id: number;
   title: string;
   description: string;
-  status: 'pending' | 'in-progress' | 'completed';
-  assignedTo: string;
-  createdBy: string;
-  createdAt: string;
+  status: number; // Changed from string to number to match DB
+  assigned_to: number;
+  created_by: number;
+  created_at: string;
+  team_id: number;
+  due_date?: string;
+  updated_at: string;
+}
+
+interface TeamMember {
+  id: number;
+  user_id: number;
+  team_id: number;
+  user_name: string;
+  user_email: string;
 }
 
 const TeamLeadPanel: React.FC = () => {
@@ -18,103 +30,125 @@ const TeamLeadPanel: React.FC = () => {
     description: '',
     assignedTo: ''
   });
-  const [teamMembers] = useState(['john_doe', 'jane_smith', 'bob_wilson']);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
 
-  useEffect(() => {
-    fetchTeamTodos();
+  const fetchTeamTodos = useCallback(async () => {
+    const teamId: number = 1;
+    try {
+      const response = await CrudService.read<Todo[]>(`/team/${teamId}/todos`);
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.data == null) return;
+
+      console.log("RESPONSE DATA:", response.data);
+
+      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
+
+      setTodos(response.data.data ?? []);
+    }
+    catch (err) { console.log("Failed to fetch todos", err); }
+    finally { setLoading(false); }
   }, []);
 
-  const fetchTeamTodos = async () => {
+  const fetchTeamMembers = useCallback(async () => {
+    const teamId = 1;
     try {
-      const response = await fetch('/api/team/todos');
-      const data = await response.json();
-      setTodos(data);
-    } catch (error) {
-      // Mock data for demo
-      setTodos([
-        {
-          id: '1',
-          title: 'Complete project proposal',
-          description: 'Draft and submit the Q2 project proposal',
-          status: 'in-progress',
-          assignedTo: 'john_doe',
-          createdBy: 'teamlead',
-          createdAt: '2024-01-15'
-        },
-        {
-          id: '2',
-          title: 'Code review',
-          description: 'Review the authentication module',
-          status: 'pending',
-          assignedTo: 'jane_smith',
-          createdBy: 'teamlead',
-          createdAt: '2024-01-16'
-        },
-        {
-          id: '3',
-          title: 'Update documentation',
-          description: 'Update API documentation with new endpoints',
-          status: 'completed',
-          assignedTo: 'bob_wilson',
-          createdBy: 'john_doe',
-          createdAt: '2024-01-14'
-        }
-      ]);
-    } finally {
-      setLoading(false);
+      const response = await CrudService.read<TeamMember[]>(`/team/${teamId}/members`);
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.data == null) return;
+
+      console.log("MEMBERS:", response.data);
+
+      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
+
+      setTeamMembers(response.data.data ?? []);
+    } catch (err) {
+      console.log("Failed to fetch team members", err);
     }
-  };
+  }, []);
+
+  useEffect(() => { 
+    fetchTeamTodos(); 
+    fetchTeamMembers(); 
+  }, [fetchTeamTodos, fetchTeamMembers]);
 
   const handleCreateTodo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTodo.title.trim()) return;
 
     try {
-      const response = await fetch('/api/team/todos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newTodo,
-          status: 'pending',
-          createdBy: 'teamlead',
-          createdAt: new Date().toISOString().split('T')[0]
-        })
-      });
-
-      const todo = await response.json();
-      setTodos([...todos, todo]);
-    } catch (error) {
-      // Mock create for demo
-      const mockTodo: Todo = {
-        id: Date.now().toString(),
-        ...newTodo,
-        status: 'pending',
-        createdBy: 'teamlead',
-        createdAt: new Date().toISOString().split('T')[0]
+      const todoData = {
+        p_created_by: 1,
+        p_team_id: 1, 
+        p_title: newTodo.title,
+        p_description: newTodo.description,
+        p_status: 1,
+        p_assigned_to: parseInt(newTodo.assignedTo)
       };
-      setTodos([...todos, mockTodo]);
-    }
 
-    setNewTodo({ title: '', description: '', assignedTo: '' });
+      const response = await CrudService.create('/todo/create', todoData);
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.data == null) return;
+
+      console.log("CREATE RESPONSE:", response.data);
+
+      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
+
+      // Refresh the todos list after successful creation
+      fetchTeamTodos();
+      
+      // Reset the form
+      setNewTodo({ title: '', description: '', assignedTo: '' });
+      
+    } catch (err) { 
+      console.log("Could not create todo", err); 
+    }
   };
 
-  const handleStatusChange = async (todoId: string, newStatus: Todo['status']) => {
+  const handleStatusChange = async (todoId: number, newStatus: string) => {
     try {
-      await fetch(`/api/team/todos/${todoId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
+      const statusData = { status: getStatusId(newStatus) };
+      
+      const response = await CrudService.update('/todo', todoId, statusData);
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.data == null) return;
 
+      console.log("UPDATE RESPONSE:", response.data);
+
+      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
+
+      // Update the local state
       setTodos(todos.map(todo =>
-        todo.id === todoId ? { ...todo, status: newStatus } : todo
+        todo.id === todoId ? { ...todo, status: getStatusId(newStatus) } : todo
       ));
-    } catch (error) {
-      // Mock update for demo
-      setTodos(todos.map(todo =>
-        todo.id === todoId ? { ...todo, status: newStatus } : todo
-      ));
+    } catch (err) {
+      console.log("Could not update todo status", err);
     }
+  };
+
+  // Helper function to map status IDs to names
+  const getStatusName = (statusId: number): string => {
+    switch (statusId) {
+      case 1: return 'pending';
+      case 2: return 'in-progress';  
+      case 3: return 'completed';
+      default: return 'pending';
+    }
+  };
+
+  // Helper function to map status names to IDs
+  const getStatusId = (status: string): number => {
+    switch (status) {
+      case 'pending': return 1;
+      case 'in-progress': return 2;  
+      case 'completed': return 3;
+      default: return 1;
+    }
+  };
+
+  // Helper function to get team member name by ID
+  const getTeamMemberName = (userId: number): string => {
+    const member = teamMembers.find(m => m.user_id === userId);
+    return member ? member.user_name : `User ${userId}`;
   };
 
   if (loading) return <div>Loading team todos...</div>;
@@ -146,7 +180,7 @@ const TeamLeadPanel: React.FC = () => {
           >
             <option value="">Select team member</option>
             {teamMembers.map(member => (
-              <option key={member} value={member}>{member}</option>
+              <option key={member.id} value={member.user_id}>{member.user_name}</option>
             ))}
           </select>
           <button type="submit" className="btn-primary">Create TODO</button>
@@ -161,9 +195,9 @@ const TeamLeadPanel: React.FC = () => {
               <div className="todo-header">
                 <h4>{todo.title}</h4>
                 <select
-                  value={todo.status}
-                  onChange={(e) => handleStatusChange(todo.id, e.target.value as Todo['status'])}
-                  className={`status-select status-${todo.status}`}
+                  value={getStatusName(todo.status)}
+                  onChange={(e) => handleStatusChange(todo.id, e.target.value)}
+                  className={`status-select status-${getStatusName(todo.status)}`}
                 >
                   <option value="pending">Pending</option>
                   <option value="in-progress">In Progress</option>
@@ -172,9 +206,9 @@ const TeamLeadPanel: React.FC = () => {
               </div>
               <p className="todo-description">{todo.description}</p>
               <div className="todo-meta">
-                <span>Assigned to: <strong>{todo.assignedTo}</strong></span>
-                <span>Created by: {todo.createdBy}</span>
-                <span>Date: {todo.createdAt}</span>
+                <span>Assigned to: <strong>{getTeamMemberName(todo.assigned_to)}</strong></span>
+                <span>Created by: {todo.created_by}</span>
+                <span>Date: {todo.created_at}</span>
               </div>
             </div>
           ))}
