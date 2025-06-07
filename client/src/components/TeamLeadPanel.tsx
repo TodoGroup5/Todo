@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CrudService } from '../api/crudService.ts';
 
 interface Todo {
@@ -11,12 +11,6 @@ interface Todo {
   created_at: string;
 }
 
-// Either (success + data)/(failure + error)
-export type JSONResult<S = undefined, F = undefined> = (
-  { status: 'success'; data?: S; } |
-  { status: 'failed'; error: string; data?: F }
-);
-
 const TeamLeadPanel: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,24 +21,24 @@ const TeamLeadPanel: React.FC = () => {
   });
   const [teamMembers] = useState(['john_doe', 'jane_smith', 'bob_wilson']);
 
-  useEffect(() => {
-    fetchTeamTodos();
-  }, []);
-
-  const fetchTeamTodos = async () => {
+  const fetchTeamTodos = useCallback(async () => {
     const teamId: number = 1;
     try {
-      const response = await CrudService.read<JSONResult<Todo[]>>(`/team/${teamId}/todos`);
-      if (response.error) throw new Error(response.error);
-      console.log(response.data?.data)
-      setTodos(response.data?.data ?? []);
-      console.log("aaaahhhhh", todos);
-    } catch (error) {
-      console.log("Failed to fetch todos");
-    } finally {
-      setLoading(false);
+      const response = await CrudService.read<Todo[]>(`/team/${teamId}/todos`);
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.data == null) return;
+
+      console.log("RESPONSE DATA:", response.data);
+
+      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
+
+      setTodos(response.data.data ?? []);
     }
-  };
+    catch (err) { console.log("Failed to fetch todos", err); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchTeamTodos(); }, [fetchTeamTodos]);
 
   const handleCreateTodo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,9 +58,8 @@ const TeamLeadPanel: React.FC = () => {
 
       const todo = await response.json();
       setTodos([...todos, todo]);
-    } catch (error) {
-       console.log("Could not create todo");
     }
+    catch (err) { console.log("Could not create todo", err); }
 
     setNewTodo({ title: '', description: '', assignedTo: '' });
   };
@@ -74,7 +67,7 @@ const TeamLeadPanel: React.FC = () => {
   const handleStatusChange = async (todoId: number, newStatus: Todo['status']) => {
     try {
       await fetch(`/api/team/todos/${todoId}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
@@ -82,7 +75,7 @@ const TeamLeadPanel: React.FC = () => {
       setTodos(todos.map(todo =>
         todo.id === todoId ? { ...todo, status: newStatus } : todo
       ));
-    } catch (error) {
+    } catch {
       // Mock update for demo
       setTodos(todos.map(todo =>
         todo.id === todoId ? { ...todo, status: newStatus } : todo

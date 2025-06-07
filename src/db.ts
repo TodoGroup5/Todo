@@ -43,7 +43,7 @@ export type ParseParamsResult = (
   { status: 'failed'; invalid: InvalidList }
 );
 
-export type TableResult = { data: {[key: string]: unknown}[] };
+export type TableResult = { [key: string]: unknown }[];
 
 function isZodType(x: any): x is ZodType {
   return (typeof x?.safeParse === 'function');
@@ -127,8 +127,8 @@ export async function callDBRaw<T extends QueryResultRow>(
 }
 
 // Wrapper for callRaw hiding DB-side types, extracting API call params & performing validation
-// On success, returns { fields[], rows[] } TableResult
-// On failure, returns [paramName, error] InvalidList
+// On success, returns rows[] TableResult
+// On failure, returns [paramName, error][] InvalidList
 export async function callDB (
   pool: Pool | Client,
   call: CallData,
@@ -145,7 +145,7 @@ export async function callDB (
   // Attempt DB call
   try {
     const res = await callDBRaw(pool, call.call, rawParams.params, call.type, (call as any).page ?? undefined, (call as any).itemsPerPage ?? undefined);
-    return { status: 'success', data: { data: res?.rows ?? [] } };
+    return { status: 'success', data: res?.rows ?? [] };
   }
   catch (error: any) {
     return { status: 'failed', error: 'dbCallFailed', data: error.message };
