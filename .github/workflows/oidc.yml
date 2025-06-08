@@ -54,7 +54,7 @@ jobs:
           cache: 'npm'
 
 
-      - name: Configure AWS credentials via OIDC
+      - name: Fetch Parameters
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
