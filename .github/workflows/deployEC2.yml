@@ -57,30 +57,32 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
         port: 22
         script: |
-          mkdir -p /home/ec2-user/todoapp
-          cd /home/ec2-user/todoapp
+          set -e
 
-          # Extract deployment package
-          tar -xzf /home/ec2-user/deploy.tar.gz
-          rm /home/ec2-user/deploy.tar.gz
+          DEPLOY_DIR="/home/ec2-user/todoapp"
+          PACKAGE="/home/ec2-user/deploy.tar.gz"
 
-          # Enter server root folder
-          mkdir -p /home/ec2-user/todoapp/server
-          cd /home/ec2-user/todoapp/server
+          # Prepare deployment directory
+          rm -rf $DEPLOY_DIR
+          mkdir -p $DEPLOY_DIR
+          cd $DEPLOY_DIR
+
+          # Extract and clean up package
+          tar -xzf $PACKAGE
+          rm -f $PACKAGE
 
           # Install production dependencies
-          npm install --production
+          cd server
+          npm i
 
-          # Stop existing PM2 process if running
+          # Restart the app with PM2
           pm2 stop todo-app || true
           pm2 delete todo-app || true
+          pm2 start dist/server.js --name "todo-app"
 
-          # Start server
-          cd ..
-          pm2 start server/dist/server.js --name "todo-app"
-
-          # Save PM2 config
+          # Save PM2 process list
           pm2 save
 
-          # Setup PM2 startup
+          # Ensure PM2 auto-starts on reboot
           sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u ec2-user --hp /home/ec2-user || true
+
