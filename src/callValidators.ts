@@ -31,10 +31,13 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
 
     get_member_local_roles:     [["member_id", z_id]],
 
+    get_all_global_roles:       [],
     get_global_role_by_id:      [["role_id", z_id]],
     get_global_role_by_name:    [["name", z_str]],
+    get_all_local_roles:        [],
     get_local_role_by_id:       [["role_id",  z_id]],
     get_local_role_by_name:     [["name", z_str]],
+    get_all_statuses:           [],
     get_status_by_id:           [["status_id", z_id]],
     get_status_by_name:         [["name", z_str]],
 
