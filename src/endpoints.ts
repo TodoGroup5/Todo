@@ -162,7 +162,7 @@ const easyEndpoints: EasyEndpointMap = {
     //--------------- Todos ---------------//
     'POST   /todo/create':                       ['proc', 'create_todo'],
     'GET    /todo/:todo_id':                     ['func', 'get_todo_by_id', allParamsToNumber],
-    'GET    /user/:todo_id/todos':               ['func', 'get_user_todos', allParamsToNumber],
+    'GET    /user/:user_id/todos':               ['func', 'get_user_todos', allParamsToNumber],
     'GET    /team/:team_id/user/:user_id/todos': ['func', 'get_member_todos', allParamsToNumber],
     'GET    /team/:team_id/todos':               ['func', 'get_team_todos', allParamsToNumber],
     'PUT    /todo/:todo_id':                     ['proc', 'update_todo', allParamsToNumber],
