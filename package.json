@@ -2,7 +2,6 @@
   "name": "todo-app",
   "version": "1.0.0",
   "description": "",
-  "type": "module",
   "main": "src/index.ts",
   "scripts": {
     "start": "node dist/server.js",
