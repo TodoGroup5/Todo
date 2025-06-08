@@ -67,12 +67,13 @@ export function parseParams(
     [paramName, validator] = (typeof exp === 'string') ? [exp, undefined] : exp;
 
     // Check missing param
-    if (!(paramName in call.params)) {
-      invalid.push([paramName, 'Missing parameter']);
-      continue;
-    }
+    // REMOVED: Handled by VALIDATOR_SETS
+    // if (!(paramName in call.params)) {
+    //   invalid.push([paramName, 'Missing parameter']);
+    //   continue;
+    // }
 
-    const value = call.params[paramName];
+    const value = call.params[paramName] ?? undefined;
     
     // Skip missing validator
     if (!validator) { res.push(value); continue; }
@@ -80,7 +81,7 @@ export function parseParams(
     if (isZodType(validator)) {                           // Zod validator
       const result = validator.safeParse(value);
       if (!result.success) {
-        invalid.push([paramName, result.error.message]);
+        invalid.push([paramName, result.error.errors.map(x => `[${x.code}]`).join(", ")]);
         continue;
       }
       res.push(result.data);

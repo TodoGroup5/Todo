@@ -2,8 +2,8 @@ import { z } from "zod";
 import type { CallName, ParamValidator } from "./db.js";
 
 export const z_str = z.string().max(2048);
-export const z_date = z.date();
-export const z_timestamp = z.date().or(z.string());
+export const z_date = z.coerce.date();
+export const z_timestamp = z.coerce.date().or(z.string());
 export const z_id = z.number().int().nonnegative();
 export const z_email = z_str.email();
 
