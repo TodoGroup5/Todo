@@ -8,22 +8,14 @@ permissions:
   contents: read
 
 jobs:
-  checkout:
-    name: Checkout Code
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-  setup:
-    name: Setup AWS & Terraform
-    needs: checkout
+  terraform:
+    name: Terraform Deploy
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./terraform/infrastructure
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Configure AWS credentials via OIDC
@@ -33,35 +25,13 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-
-  plan:
-    name: Terraform Plan
-    needs: setup
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./terraform/infrastructure
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+        uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
         run: terraform init
 
       - name: Terraform Plan
         run: terraform plan
-
-  apply:
-    name: Terraform Apply
-    needs: plan
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./terraform/infrastructure
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
