@@ -25,7 +25,7 @@ const TeamLeadPanel: React.FC = () => {
     const teamId: number = 1;
     try {
       const response = await CrudService.read<Todo[]>(`/team/${teamId}/todos`);
-      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); return; }
       if (response.data == null) return;
 
       console.log("RESPONSE DATA:", response.data);

@@ -40,10 +40,10 @@ function consReqHandler(type: CallType, call: CallName, urlParamFormatter: Param
 
 const allParamsToNumber: ParamFormatter<unknown, number> = (params) => {
   const res: ParamsDict<number> = {};
-  for (const key in params) {
+  Object.keys(params).forEach(key => {
     res[key] = Number(params[key]);
     console.log("OUT:", res[key]);
-  }
+  });
   return res;
 };
 
