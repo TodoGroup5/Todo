@@ -6,6 +6,13 @@ import path from 'path';
 
 import { attachCsrfToken, verifyCsrfToken } from "./lib/csrf";
 
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const distPath = path.join(__dirname, '../client/dist');
+
 //---------- Setup ----------//
 const app = express();
 const PORT = Number(process.env.PORT ?? 3000);
@@ -17,7 +24,7 @@ app.use(express.json());
 app.use("/api", router);
 
 // Path to client build directory
-const distPath = path.join(__dirname, '../client/dist');  // or '../client/build' if that's your folder
+//const distPath = path.join(__dirname, '../client/dist');  // or '../client/build' if that's your folder
 
 // Serve static React files
 app.use(express.static(distPath));

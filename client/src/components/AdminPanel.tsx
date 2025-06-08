@@ -5,8 +5,8 @@ interface User {
   id: number;
   name: string;
   email: string;
-  created_at: string;
-  updated_at: string;
+  password_hash: string;
+  two_fa_secret: string;
 }
 
 interface UserRole {
@@ -36,14 +36,9 @@ const AdminPanel: React.FC = () => {
     role: '' 
   });
 
-  useEffect(() => {
-    fetchUsers();
-    fetchGlobalRoles();
-  }, []);
-
   const fetchUsers = useCallback(async () => {
     try {
-      const response = await CrudService.customRequest('/admin/users', 'GET');
+      const response = await CrudService.customRequest('/user/all', 'GET');
       if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
       if (response.data == null) return;
 
@@ -51,7 +46,7 @@ const AdminPanel: React.FC = () => {
 
       if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
 
-      const usersData = response.data.data ?? [];
+      const usersData = response.data.data as User[] ?? [];
       const usersWithRoles: UserWithRoles[] = [];
 
       for (const user of usersData) {
@@ -59,7 +54,7 @@ const AdminPanel: React.FC = () => {
         let userRoles: UserRole[] = [];
         
         if (!rolesResponse.error && rolesResponse.data && rolesResponse.data.status !== 'failed') {
-          userRoles = rolesResponse.data.data ?? [];
+          userRoles = rolesResponse.data.data as UserRole[] ?? [];
         }
 
         usersWithRoles.push({
@@ -78,28 +73,38 @@ const AdminPanel: React.FC = () => {
 
   const fetchGlobalRoles = useCallback(async () => {
     try {
-      const response = await CrudService.customRequest('/admin/global-roles', 'GET');
+      const response = await CrudService.customRequest('/global-role/all', 'GET');
       if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
       if (response.data == null) return;
 
       console.log("ROLES RESPONSE:", response.data);
 
       if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
-
-      setGlobalRoles(response.data.data ?? []);
+      
+      setGlobalRoles(response.data.data as GlobalRole[] ?? []);
     } catch (err) {
       console.log("Failed to fetch global roles", err);
     }
   }, []);
 
+  useEffect(() => {
+    fetchUsers();
+    fetchGlobalRoles();
+  }, [fetchUsers, fetchGlobalRoles]);
+
+  useEffect(() => {
+    console.log('USERS CHANGED')
+    console.log(users)
+  }, [users])
+
   const handleRoleChange = async (userId: number, newRoleId: string) => {
     if (!newRoleId) return;
-    
     setUpdateLoading(true);
     try {
       const user = users.find(u => u.id === userId);
       if (!user) return;
 
+      // revoke existing roles
       if (user.roles.length > 0) {
         for (const role of user.roles) {
           const revokeResponse = await CrudService.delete(`/user/${userId}/global-role/${role.role_id}/revoke`, '');
@@ -107,6 +112,7 @@ const AdminPanel: React.FC = () => {
         }
       }
 
+      
       const assignData = {};
       const assignResponse = await CrudService.create(`/user/${userId}/global-role/${newRoleId}/assign`, assignData);
       if (assignResponse.error) { throw new Error("[ASSIGN]: " + assignResponse.error + "\n" + assignResponse.message); return; }
@@ -114,9 +120,26 @@ const AdminPanel: React.FC = () => {
 
       console.log("ROLE CHANGE RESPONSE:", assignResponse.data);
 
-      if (assignResponse.data.status === 'failed') { throw new Error("[DATA]: " + assignResponse.data.error); return; }
-
+      if (assignResponse.data.status === 'failed') { throw new Error("[DATA]: " + assignResponse.data.error); return; }   
+      
       fetchUsers();
+      const selectedRole = globalRoles.find(role => role.id === parseInt(newRoleId));
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.id === userId
+          ? {
+              ...user,
+              roles: [
+                {
+                  role_id: parseInt(newRoleId),
+                  role_name: selectedRole.name,
+                  user_id: userId
+                }
+              ]
+            }
+          : user
+        )
+      );
     } catch (err) {
       console.log("Failed to change user role", err);
     } finally {
@@ -145,7 +168,8 @@ const AdminPanel: React.FC = () => {
       if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
 
       if (newUser.role) {
-        const newUserId = response.data.data?.id;
+        const userResponse = response.data.data as User;
+        const newUserId = userResponse.id;
         if (newUserId) {
           const assignData = {};
           const roleResponse = await CrudService.create(`/user/${newUserId}/global-role/${newUser.role}/assign`, assignData);
@@ -195,9 +219,9 @@ const AdminPanel: React.FC = () => {
     return userRoles[0].role_id;
   };
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  // const formatDate = (dateString: string): string => {
+  //   return new Date(dateString).toLocaleDateString();
+  // };
 
   if (loading) return <div className="dashboard-content">Loading users...</div>;
 
@@ -272,7 +296,6 @@ const AdminPanel: React.FC = () => {
               <span>Name</span>
               <span>Email</span>
               <span>Current Role</span>
-              <span>Created</span>
               <span>Actions</span>
             </div>
             {users.map(user => (
@@ -280,7 +303,6 @@ const AdminPanel: React.FC = () => {
                 <span>{user.name}</span>
                 <span>{user.email}</span>
                 <span className="role-badge">{getUserPrimaryRole(user.roles)}</span>
-                <span>{formatDate(user.created_at)}</span>
                 <div className="table-actions">
                   <select
                     value={getUserPrimaryRoleId(user.roles) || ''}
@@ -311,7 +333,7 @@ const AdminPanel: React.FC = () => {
           <div className="users-table">
             <div className="table-header">
               <span>Role Name</span>
-              <span>Role ID</span>
+              {/* <span>Role ID</span> */}
               <span>Users Count</span>
             </div>
             {globalRoles.map(role => {
@@ -322,7 +344,7 @@ const AdminPanel: React.FC = () => {
               return (
                 <div key={role.id} className="table-row">
                   <span className="role-badge">{role.name}</span>
-                  <span>{role.id}</span>
+                  {/* <span>{role.id}</span> */}
                   <span>{usersWithRole} users</span>
                 </div>
               );
