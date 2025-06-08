@@ -21,6 +21,7 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
     get_all_users:              [],
     get_user_by_email:          [["email", z_email]],
     get_user_by_id:             [["user_id", z_id]],
+    get_user_teams:             [["user_id", z_id]],
     get_user_global_roles:      [["user_id", z_id]],
     get_user_todos:             [["user_id", z_id]],
 

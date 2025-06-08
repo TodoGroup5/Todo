@@ -107,6 +107,33 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+CREATE OR REPLACE FUNCTION get_user_teams(p_user_id INTEGER)
+RETURNS TABLE (
+    team_id INTEGER,
+    team_name VARCHAR,
+    team_description VARCHAR,
+    membership_id INTEGER,
+    role_id INTEGER,
+    role_name VARCHAR
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        t.id AS team_id,
+        t.name AS team_name,
+        t.description AS team_description,
+        tm.id AS membership_id,
+        mlr.role_id,
+        lr.name AS role_name
+    FROM team_memberships tm
+    JOIN teams t ON tm.team_id = t.id
+    LEFT JOIN member_local_roles mlr ON tm.id = mlr.member_id
+    LEFT JOIN local_roles lr ON mlr.role_id = lr.id
+    WHERE tm.user_id = p_user_id;
+END;
+$$ LANGUAGE plpgsql;
+
+
 CREATE OR REPLACE PROCEDURE update_user(
     p_user_id INTEGER,
     p_name VARCHAR DEFAULT NULL,
