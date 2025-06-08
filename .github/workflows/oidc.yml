@@ -140,7 +140,7 @@ jobs:
             # Restart the app with PM2
             pm2 stop todo-app || true
             pm2 delete todo-app || true
-            pm2 start dist/server.js --name "todo-app"
+            pm2 start server.js --name "todo-app" --cwd dist
 
             # Save PM2 process list and enable on reboot
             pm2 save
