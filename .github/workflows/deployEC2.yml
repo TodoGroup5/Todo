@@ -33,7 +33,7 @@ jobs:
       run: |
         mkdir -p server
         cp -r dist server/
-        cp -r client/dist server/
+        cp -r client/dist server/client
         cp package.json package-lock.json server/
         tar -czf deploy.tar.gz server
         rm -rf server
@@ -65,7 +65,8 @@ jobs:
           rm /home/ec2-user/deploy.tar.gz
 
           # Enter server root folder
-          cd server
+          mkdir -p /home/ec2-user/todoapp/server
+          cd /home/ec2-user/todoapp/server
 
           # Install production dependencies
           npm install --production
