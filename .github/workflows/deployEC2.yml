@@ -31,7 +31,13 @@ jobs:
       
     - name: Create deployment package
       run: |
-        tar -czf deploy.tar.gz dist package.json package-lock.json
+        mkdir -p server
+        cp -r dist server/
+        cp -r client/dist server/
+        cp package.json package-lock.json server/
+        tar -czf deploy.tar.gz server
+        rm -rf server
+
           
     - name: Copy files to EC2
       uses: appleboy/scp-action@v0.1.4
@@ -59,11 +65,18 @@ jobs:
           tar -xzf /home/ec2-user/deploy.tar.gz
           rm /home/ec2-user/deploy.tar.gz
           
+          # Move contents from 'server' folder to current directory
+          mv server/* .
+          rm -rf server
+          
+          # Install dependencies
+          npm install
           
           # Stop existing PM2 process if running
           pm2 stop todo-app || true
           pm2 delete todo-app || true
           
+          # Start the server with PM2
           pm2 start dist/server.js --name "todo-app"
           
           # Save PM2 configuration
