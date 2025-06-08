@@ -11,8 +11,8 @@ data "aws_ssm_parameter" "db_password" {
 resource "aws_db_subnet_group" "db_subnet_group" {
   name       = "rds-subnet-group"
   subnet_ids = [
-    aws_subnet.private_a.id,
-    aws_subnet.private_b.id,
+    aws_subnet.public_rds_a.id,
+    aws_subnet.public_rds_b.id,
   ]
 
   tags = {
@@ -22,7 +22,7 @@ resource "aws_db_subnet_group" "db_subnet_group" {
 
 # RDS PostgreSQL Instance
 resource "aws_db_instance" "postgres" {
-  identifier              = "my-postgres-db"
+  identifier              = "todo-postgres-db"
   engine                  = "postgres"
   instance_class          = "db.t3.micro"
   allocated_storage       = 20
@@ -32,6 +32,6 @@ resource "aws_db_instance" "postgres" {
   db_subnet_group_name    = aws_db_subnet_group.db_subnet_group.name
   vpc_security_group_ids  = [aws_security_group.rds_sg.id]
   skip_final_snapshot     = true
-  publicly_accessible     = false
+  publicly_accessible     = true
   multi_az = false
 }

@@ -13,18 +13,20 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 }
 
-# Private Subnet for RDS
-resource "aws_subnet" "private_a" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.private_subnet_cidr_a
-  availability_zone = var.availability_zone_a
+# Public Subnet for RDS
+resource "aws_subnet" "public_rds_a" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.private_subnet_cidr_a
+  availability_zone       = var.availability_zone_a
+  map_public_ip_on_launch = true
 }
 
-# Private Subnet for RDS - second AZ
-resource "aws_subnet" "private_b" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.private_subnet_cidr_b   
-  availability_zone = var.availability_zone_b    
+# Public Subnet for RDS - second AZ
+resource "aws_subnet" "public_rds_b" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.private_subnet_cidr_b   
+  availability_zone       = var.availability_zone_b
+  map_public_ip_on_launch = true
 }
 
 # Internet Gateway
@@ -42,25 +44,20 @@ resource "aws_route_table" "public" {
   }
 }
 
-# Public Route Table Association
+# Public Route Table Associations
 resource "aws_route_table_association" "public_assoc" {
   subnet_id      = aws_subnet.public.id
   route_table_id = aws_route_table.public.id
 }
 
-# Private Route Table (no internet route)
-resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.main.id
+resource "aws_route_table_association" "rds_public_assoc_a" {
+  subnet_id      = aws_subnet.public_rds_a.id
+  route_table_id = aws_route_table.public.id
 }
 
-resource "aws_route_table_association" "private_assoc_a" {
-  subnet_id      = aws_subnet.private_a.id
-  route_table_id = aws_route_table.private.id
-}
-
-resource "aws_route_table_association" "private_assoc_b" {
-  subnet_id      = aws_subnet.private_b.id
-  route_table_id = aws_route_table.private.id
+resource "aws_route_table_association" "rds_public_assoc_b" {
+  subnet_id      = aws_subnet.public_rds_b.id
+  route_table_id = aws_route_table.public.id
 }
 
 # Security Group for EC2
@@ -112,16 +109,3 @@ resource "aws_security_group" "rds_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
-
-# Allow EC2 to connect to RDS on port 5432
-resource "aws_security_group_rule" "ec2_to_rds" {
-  type                     = "ingress"
-  from_port                = 5432
-  to_port                  = 5432
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.rds_sg.id
-  source_security_group_id = aws_security_group.ec2_sg.id
-  description              = "Allow PostgreSQL access from EC2"
-}
-
-
