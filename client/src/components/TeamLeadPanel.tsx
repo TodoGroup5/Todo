@@ -242,6 +242,39 @@ const TeamLeadPanel: React.FC = () => {
     setEditingTodo(null);
   };
 
+  const handleDeleteTodo = async (todoId: number) => {
+    // Confirm deletion
+    if (!window.confirm('Are you sure you want to delete this todo? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await CrudService.delete('/todo', todoId);
+      if (response.error) { 
+        throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); 
+        return; 
+      }
+      if (response.data == null) return;
+
+      console.log("DELETE TODO RESPONSE:", response.data);
+
+      if (response.data.status === 'failed') { 
+        throw new Error("[DATA]: " + response.data.error); 
+        return; 
+      }
+
+      // Remove the todo from the local state
+      setTodos(todos.filter(todo => todo.id !== todoId));
+      
+      // If we were editing this todo, clear the edit state
+      if (editingTodo && editingTodo.id === todoId) {
+        setEditingTodo(null);
+      }
+    } catch (err) {
+      console.log("Could not delete todo", err);
+    }
+  };
+
   const handleStatusChange = async (todoId: number, newStatus: string) => {
     try {
       const statusData = { status: getStatusId(newStatus) };
@@ -279,6 +312,10 @@ const TeamLeadPanel: React.FC = () => {
 
   const canEditTodo = (todo: Todo): boolean => {
     return isTeamLead() || todo.assigned_to === userId || todo.created_by === userId;
+  };
+
+  const canDeleteTodo = (todo: Todo): boolean => {
+    return isTeamLead();
   };
 
   if (teamsLoading) return <div>Loading teams...</div>;
@@ -432,14 +469,24 @@ const TeamLeadPanel: React.FC = () => {
                         )}
                         <span>Created by: {todo.created_by}</span>
                         <span>Date: {todo.created_at}</span>
-                        {canEditTodo(todo) && (
-                          <button 
-                            onClick={() => setEditingTodo(todo)}
-                            className="btn-link"
-                          >
-                            Edit
-                          </button>
-                        )}
+                        <div className="todo-actions">
+                          {canEditTodo(todo) && (
+                            <button 
+                              onClick={() => setEditingTodo(todo)}
+                              className="btn-link"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {canDeleteTodo(todo) && (
+                            <button 
+                              onClick={() => handleDeleteTodo(todo.id)}
+                              className="btn-link btn-danger"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))
