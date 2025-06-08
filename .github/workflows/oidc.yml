@@ -130,10 +130,12 @@ jobs:
             cd server
             npm i
 
-            export DB_USER=$POSTGRES_USER
-            export DB_PASS=$POSTGRES_PASS
-            export DB_HOST=$POSTGRES_HOST
-            export DB_NAME=$POSTGRES_DBNAME
+            cat <<EOF > dist/.env
+            DB_USER=$POSTGRES_USER
+            DB_PASS=$POSTGRES_PASS
+            DB_HOST=$POSTGRES_HOST
+            DB_NAME=$POSTGRES_DBNAME
+            EOF
 
             # Restart the app with PM2
             pm2 stop todo-app || true
