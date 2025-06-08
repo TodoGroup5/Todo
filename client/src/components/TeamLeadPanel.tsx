@@ -77,16 +77,17 @@ const TeamLeadPanel: React.FC = () => {
 
     try {
       const todoData = {
-        p_created_by: 1,
-        p_team_id: 1, 
-        p_title: newTodo.title,
-        p_description: newTodo.description,
-        p_status: 1,
-        p_assigned_to: parseInt(newTodo.assignedTo)
+        created_by: 1,
+        team_id: 1, 
+        title: newTodo.title,
+        description: newTodo.description,
+        status: 1,
+        assigned_to: parseInt(newTodo.assignedTo),
+        due_date: new Date()
       };
 
       const response = await CrudService.create('/todo/create', todoData);
-      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); return; }
       if (response.data == null) return;
 
       console.log("CREATE RESPONSE:", response.data);
@@ -109,7 +110,7 @@ const TeamLeadPanel: React.FC = () => {
       const statusData = { status: getStatusId(newStatus) };
       
       const response = await CrudService.update('/todo', todoId, statusData);
-      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); return; }
       if (response.data == null) return;
 
       console.log("UPDATE RESPONSE:", response.data);
