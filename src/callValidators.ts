@@ -2,8 +2,8 @@ import { z } from "zod";
 import type { CallName, ParamValidator } from "./db.js";
 
 export const z_str = z.string().max(2048);
-export const z_date = z.date();
-export const z_timestamp = z.date().or(z.string());
+export const z_date = z.coerce.date();
+export const z_timestamp = z.coerce.date().or(z.string());
 export const z_id = z.number().int().nonnegative();
 export const z_email = z_str.email();
 
@@ -31,10 +31,13 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
 
     get_member_local_roles:     [["member_id", z_id]],
 
+    get_all_global_roles:       [],
     get_global_role_by_id:      [["role_id", z_id]],
     get_global_role_by_name:    [["name", z_str]],
+    get_all_local_roles:        [],
     get_local_role_by_id:       [["role_id",  z_id]],
     get_local_role_by_name:     [["name", z_str]],
+    get_all_statuses:           [],
     get_status_by_id:           [["status_id", z_id]],
     get_status_by_name:         [["name", z_str]],
 

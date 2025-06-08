@@ -14,10 +14,13 @@
 
 - [/todo/:id]
 
+- [/status/all]
 - [/status/:id]
 - [/status/name/:name]
+- [/global-role/all]
 - [/global-role/:id]
 - [/global-role/name/:name]
+- [/local-role/all]
 - [/local-role/:id]
 - [/local-role/name/:name]
 

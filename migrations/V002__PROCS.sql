@@ -20,6 +20,7 @@
 
 -- Statuses:
 --  - create_status
+--  - get_all_statuses
 --  - get_status_by_id
 --  - get_status_by_name
 --  - update_status
@@ -34,6 +35,7 @@
 
 -- Roles - Global:
 --  - create_global_role
+--  - get_all_global_roles
 --  - get_global_role_by_id
 --  - get_global_role_by_name
 --  - update_global_role
@@ -44,6 +46,7 @@
 
 -- Roles - Local:
 --  - create_local_role
+--  - get_all_local_roles
 --  - get_local_role_by_id
 --  - get_local_role_by_name
 --  - update_local_role
@@ -69,23 +72,26 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION get_user_by_id(p_user_id INTEGER)
-RETURNS SETOF users AS $$
+RETURNS TABLE (id INTEGER, name VARCHAR, email VARCHAR, password_hash VARCHAR, two_fa_secret VARCHAR, role_id INTEGER, role_name VARCHAR) AS $$
 BEGIN
-    RETURN QUERY SELECT * FROM users WHERE id = p_user_id;
+    RETURN QUERY
+    SELECT u.id, u.name, u.email, u.password_hash, u.two_fa_secret, ugr.role_id, gr.name AS role_name
+    FROM users u
+    LEFT JOIN user_global_roles ugr ON u.id = ugr.user_id
+    LEFT JOIN global_roles gr ON ugr.role_id = gr.id
+    WHERE u.id = p_user_id;
 END;
 $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION get_user_by_email(p_email VARCHAR)
-RETURNS SETOF users AS $$
-DECLARE
-    result users%ROWTYPE;
+RETURNS TABLE (id INTEGER, name VARCHAR, email VARCHAR, password_hash VARCHAR, two_fa_secret VARCHAR, role_id INTEGER, role_name VARCHAR) AS $$
 BEGIN
-    SELECT * INTO result FROM users WHERE email = p_email;
-    IF NOT FOUND THEN
-        RETURN;
-    END IF;
-    RETURN NEXT result;
+    RETURN QUERY
+    SELECT u.id, u.name, u.email, u.password_hash, u.two_fa_secret, ugr.role_id, gr.name AS role_name FROM users u
+    LEFT JOIN user_global_roles ugr ON u.id = ugr.user_id
+    LEFT JOIN global_roles gr ON ugr.role_id = gr.id
+    WHERE u.email = p_email;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -179,26 +185,27 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION get_team_membership(p_user_id INTEGER, p_team_id INTEGER)
-RETURNS SETOF team_memberships AS $$
-DECLARE
-    result team_memberships%ROWTYPE;
+RETURNS TABLE (id INTEGER, user_id INTEGER, team_id INTEGER, role_id INTEGER, role_name VARCHAR) AS $$
 BEGIN
-    SELECT * INTO result FROM team_memberships WHERE user_id = p_user_id AND team_id = p_team_id;
-    IF NOT FOUND THEN
-        RETURN;
-    END IF;
-    RETURN NEXT result;
+    RETURN QUERY
+    SELECT tm.id, tm.user_id, tm.team_id, mlr.role_id, lr.name AS role_name
+    FROM team_memberships tm
+    LEFT JOIN member_local_roles mlr ON tm.id = mlr.member_id
+    LEFT JOIN local_roles lr ON mlr.role_id = lr.id
+    WHERE tm.user_id = p_user_id AND tm.team_id = p_team_id;
 END;
 $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION get_team_members(p_team_id INTEGER)
-RETURNS TABLE (id INTEGER, user_id INTEGER, team_id INTEGER, user_name VARCHAR, user_email VARCHAR) AS $$
+RETURNS TABLE (id INTEGER, user_id INTEGER, team_id INTEGER, user_name VARCHAR, user_email VARCHAR, role_id INTEGER, role_name VARCHAR) AS $$
 BEGIN
     RETURN QUERY
-    SELECT tm.id, tm.user_id, tm.team_id, u.name, u.email
+    SELECT tm.id, tm.user_id, tm.team_id, u.name, u.email, mlr.role_id, lr.name AS role_name
     FROM team_memberships tm
     JOIN users u ON tm.user_id = u.id
+    LEFT JOIN member_local_roles mlr ON tm.id = mlr.member_id
+    LEFT JOIN local_roles lr ON mlr.role_id = lr.id
     WHERE tm.team_id = p_team_id;
 END;
 $$ LANGUAGE plpgsql;
@@ -219,6 +226,15 @@ CREATE OR REPLACE PROCEDURE create_status(p_name VARCHAR)
 AS $$
 BEGIN
     INSERT INTO statuses (name) VALUES (p_name);
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION get_all_statuses()
+RETURNS SETOF statuses AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM statuses;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -288,24 +304,51 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION get_todo_by_id(p_todo_id INTEGER)
-RETURNS SETOF todos AS $$
-DECLARE
-    result todos%ROWTYPE;
+RETURNS TABLE (id INTEGER, created_by INTEGER, assigned_to INTEGER, team_id INTEGER, title VARCHAR, description VARCHAR, status VARCHAR, due_date DATE, is_deleted BOOLEAN, created_at TIMESTAMP, updated_at TIMESTAMP, completed_at TIMESTAMP) AS $$
 BEGIN
-    SELECT * INTO result FROM todos WHERE id = p_todo_id AND is_deleted = FALSE;
-    IF NOT FOUND THEN
-        RETURN;
-    END IF;
-    RETURN NEXT result;
+    RETURN QUERY
+    SELECT
+        t.id,
+        t.created_by,
+        t.assigned_to,
+        t.team_id,
+        t.title,
+        t.description,
+        t.status AS status_id,
+        s.name AS status_name,
+        t.due_date,
+        t.is_deleted,
+        t.created_at,
+        t.updated_at,
+        t.completed_at
+    FROM todos t
+    JOIN statuses s ON t.status = s.id
+    WHERE t.id = p_todo_id AND t.is_deleted = FALSE;
 END;
 $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION get_team_todos(p_team_id INTEGER)
-RETURNS TABLE (id INTEGER, created_by INTEGER, assigned_to INTEGER, team_id INTEGER, title VARCHAR, description VARCHAR, status INTEGER, due_date DATE, is_deleted BOOLEAN, created_at TIMESTAMP, updated_at TIMESTAMP, completed_at TIMESTAMP) AS $$
+RETURNS TABLE ( id INTEGER, created_by INTEGER, assigned_to INTEGER, team_id INTEGER, title VARCHAR, description VARCHAR, status VARCHAR, due_date DATE, is_deleted BOOLEAN, created_at TIMESTAMP, updated_at TIMESTAMP, completed_at TIMESTAMP) AS $$
 BEGIN
     RETURN QUERY
-    SELECT * FROM todos AS t WHERE t.team_id = p_team_id AND t.is_deleted = FALSE;
+    SELECT
+        t.id,
+        t.created_by,
+        t.assigned_to,
+        t.team_id,
+        t.title,
+        t.description,
+        t.status AS status_id,
+        s.name AS status,
+        t.due_date,
+        t.is_deleted,
+        t.created_at,
+        t.updated_at,
+        t.completed_at
+    FROM todos t
+    JOIN statuses s ON t.status = s.id
+    WHERE t.team_id = p_team_id AND t.is_deleted = FALSE;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -405,6 +448,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION get_all_global_roles()
+RETURNS SETOF global_roles AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM global_roles;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION get_user_global_roles(p_user_id INTEGER)
 RETURNS TABLE (user_id INTEGER, role_id INTEGER, role_name VARCHAR) AS $$
@@ -450,6 +500,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION get_all_local_roles()
+RETURNS SETOF local_roles AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM local_roles;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION get_local_role_by_name(p_name VARCHAR)
 RETURNS SETOF local_roles AS $$
