@@ -73,7 +73,7 @@ const AdminPanel: React.FC = () => {
 
   const fetchGlobalRoles = useCallback(async () => {
     try {
-      const response = await CrudService.customRequest('/global-role/all', 'GET');
+      const response = await CrudService.read<GlobalRole[]>('/global-role/all');
       if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
       if (response.data == null) return;
 
