@@ -33,6 +33,7 @@ jobs:
       run: |
         mkdir -p server
         cp -r dist server/
+        mkdir -p server/client 
         cp -r client/dist server/client/dist
         cp package.json package-lock.json server/
         tar -czf deploy.tar.gz server
