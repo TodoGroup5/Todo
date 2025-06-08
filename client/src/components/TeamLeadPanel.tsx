@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CrudService } from '../api/crudService.ts';
+import AnalyticsBarChart from './AnalyticsBarChart';
 
 interface Todo {
   id: number;
@@ -243,7 +244,6 @@ const TeamLeadPanel: React.FC = () => {
   };
 
   const handleDeleteTodo = async (todoId: number) => {
-    // Confirm deletion
     if (!window.confirm('Are you sure you want to delete this todo? This action cannot be undone.')) {
       return;
     }
@@ -263,10 +263,8 @@ const TeamLeadPanel: React.FC = () => {
         return; 
       }
 
-      // Remove the todo from the local state
       setTodos(todos.filter(todo => todo.id !== todoId));
       
-      // If we were editing this todo, clear the edit state
       if (editingTodo && editingTodo.id === todoId) {
         setEditingTodo(null);
       }
@@ -374,6 +372,12 @@ const TeamLeadPanel: React.FC = () => {
           )}
         </div>
       </div>
+
+      {selectedTeam && isTeamLead() && (
+        <div className="panel-section">
+          <AnalyticsBarChart todos={todos} statuses={statuses} />
+        </div>
+      )}
 
       {selectedTeam ? (
         <>
