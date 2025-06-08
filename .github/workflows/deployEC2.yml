@@ -19,13 +19,15 @@ jobs:
         node-version: '18'
         cache: 'npm'
         
-    - name: Install dependencies
-      run: |
-       npm i
-      
-    - name: Build application
-      run: |
-        npm run build
+    - name: Install root dependencies
+      run: npm install
+
+    - name: Install client dependencies
+      working-directory: ./client
+      run: npm install
+
+    - name: Build root app
+      run: npm run build
       
     - name: Create deployment package
       run: |
