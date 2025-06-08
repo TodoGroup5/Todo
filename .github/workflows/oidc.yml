@@ -3,6 +3,10 @@ name: Terraform Deployment Pipeline
 on:
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   checkout:
     name: Checkout Code
