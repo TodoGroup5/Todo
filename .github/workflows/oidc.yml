@@ -122,3 +122,31 @@ jobs:
             # Save PM2 process list and enable on reboot
             pm2 save
             sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u ec2-user --hp /home/ec2-user || true
+
+  flyway:
+    name: Flyway Migrations
+    runs-on: ubuntu-latest
+    needs: [terraform, deploy]
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get SSM Parameters
+        run: |
+          echo "POSTGRES_USER=$(aws ssm get-parameter --name '/db_config/db_username' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
+          echo "POSTGRES_PASS=$(aws ssm get-parameter --name '/db_config/db_password' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
+          echo "POSTGRES_HOST=$(aws ssm get-parameter --name '/db_config/db_host' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
+                       
+      - name: Run Flyway Migrations
+        run: |
+          docker run --rm --volume ${{ github.workspace }}/migrations:/flyway/sql:ro redgate/flyway -url="jdbc:postgresql://$POSTGRES_HOST/tododb" -user="$POSTGRES_USER" -password="$POSTGRES_PASS" migrate
