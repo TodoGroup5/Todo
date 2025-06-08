@@ -20,7 +20,7 @@ variable "private_subnet_cidr_a" {
 
 variable "private_subnet_cidr_b" {
   description = "CIDR block for private subnet"
-  default     = "10.0.3.0/24"
+  default     = "10.0.10.0/24"
 }
 
 variable "availability_zone_a" {
