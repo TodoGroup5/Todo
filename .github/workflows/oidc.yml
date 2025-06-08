@@ -53,6 +53,21 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get SSM Parameters
+        run: |
+          echo "POSTGRES_USER=$(aws ssm get-parameter --name '/db_config/db_username' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
+          echo "POSTGRES_PASS=$(aws ssm get-parameter --name '/db_config/db_password' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
+          echo "POSTGRES_HOST=$(aws ssm get-parameter --name '/db_config/db_host' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
+          echo "POSTGRES_DBNAME=$(aws ssm get-parameter --name '/db_config/db_name' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
+     
+
       # === Install Dependencies ===
       - name: Install Root Dependencies
         run: npm install
@@ -94,6 +109,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: POSTGRES_USER,POSTGRES_PASS,POSTGRES_HOST
           port: 22
           script: |
             set -e
@@ -113,6 +129,14 @@ jobs:
             # Install production dependencies
             cd server
             npm i
+
+            # Create .env file using passed environment variables
+            cat <<EOF > .env
+            DB_USER=$POSTGRES_USER
+            DB_PASS=$POSTGRES_PASS
+            DB_HOST=$POSTGRES_HOST
+            DB_NAME=$POSTGRES_DBNAME
+            EOF
 
             # Restart the app with PM2
             pm2 stop todo-app || true
