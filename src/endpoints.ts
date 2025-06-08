@@ -13,7 +13,11 @@ const dbPool = new Pool({
     port: Number(process.env.DB_PORT || '5432'),
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASS || 'password',
+    ssl: {
+        rejectUnauthorized: false 
+    }
 });
+
 
 // Helper function to handle responses
 function sendResponse<S, F>(
