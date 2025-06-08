@@ -4,15 +4,14 @@ data "aws_ssm_parameter" "db_username" {
 
 data "aws_ssm_parameter" "db_password" {
   name = var.db_password
-  with_decryption = true
 }
 
 # DB Subnet Group
 resource "aws_db_subnet_group" "db_subnet_group" {
   name       = "rds-subnet-group"
   subnet_ids = [
-    aws_subnet.private_a.id,
-    aws_subnet.private_b.id,
+    aws_subnet.public_rds_a.id,
+    aws_subnet.public_rds_b.id,
   ]
 
   tags = {
@@ -32,6 +31,6 @@ resource "aws_db_instance" "postgres" {
   db_subnet_group_name    = aws_db_subnet_group.db_subnet_group.name
   vpc_security_group_ids  = [aws_security_group.rds_sg.id]
   skip_final_snapshot     = true
-  publicly_accessible     = false
+  publicly_accessible     = true
   multi_az = false
 }
