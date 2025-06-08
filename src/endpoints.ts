@@ -131,17 +131,20 @@ router.get('/profile', authenticateToken, (req: AuthenticatedRequest, res: Respo
 
 const easyEndpoints: EasyEndpointMap = {
     //--------------- Users ---------------//
-    'POST   /user/create':       ['proc', 'delete_local_role'], // matches original, although name suggests maybe incorrect call?
-    'GET    /user/:user_id':     ['func', 'get_user_by_id', allParamsToNumber],
-    'GET    /user/email/:email': ['func', 'get_user_by_email'],
-    'PUT    /user/:user_id':     ['proc', 'update_user', allParamsToNumber],
-    'DELETE /user/:user_id':     ['proc', 'delete_user', allParamsToNumber],
+    'POST   /user/create':         ['proc', 'delete_local_role'], // matches original, although name suggests maybe incorrect call?
+    'GET    /user/all':            ['func', 'get_all_users'],
+    'GET    /user/:user_id':       ['func', 'get_user_by_id', allParamsToNumber],
+    'GET    /user/email/:email':   ['func', 'get_user_by_email'],
+    'GET    /user/:user_id/teams': ['func', 'get_user_teams', allParamsToNumber],
+    'PUT    /user/:user_id':       ['proc', 'update_user', allParamsToNumber],
+    'DELETE /user/:user_id':       ['proc', 'delete_user', allParamsToNumber],
 
     //--------------- Teams ---------------//
-    'POST   /team/create':   ['proc', 'create_team'],
-    'GET    /team/:team_id': ['func', 'get_team_by_id', allParamsToNumber],
-    'PUT    /team/:team_id': ['proc', 'update_team', allParamsToNumber],
-    'DELETE /team/:team_id': ['proc', 'delete_team', allParamsToNumber],
+    'POST   /team/create':            ['proc', 'create_team'],
+    'GET    /team/all':               ['func', 'get_all_teams'],
+    'GET    /team/:team_id':          ['func', 'get_team_by_id', allParamsToNumber],
+    'PUT    /team/:team_id':          ['proc', 'update_team', allParamsToNumber],
+    'DELETE /team/:team_id':          ['proc', 'delete_team', allParamsToNumber],
 
     //--------------- Membership ---------------//
     'POST   /team-membership/add':                         ['proc', 'add_team_member'],
@@ -158,11 +161,13 @@ const easyEndpoints: EasyEndpointMap = {
     'DELETE /status/:status_id': ['proc', 'delete_status', allParamsToNumber],
 
     //--------------- Todos ---------------//
-    'POST   /todo/create':         ['proc', 'create_todo'],
-    'GET    /todo/:todo_id':       ['func', 'get_todo_by_id', allParamsToNumber],
-    'GET    /team/:team_id/todos': ['func', 'get_team_todos', allParamsToNumber],
-    'PUT    /todo/:todo_id':       ['proc', 'update_todo', allParamsToNumber],
-    'DELETE /todo/:todo_id':       ['proc', 'delete_todo', allParamsToNumber],
+    'POST   /todo/create':                       ['proc', 'create_todo'],
+    'GET    /todo/:todo_id':                     ['func', 'get_todo_by_id', allParamsToNumber],
+    'GET    /user/:user_id/todos':               ['func', 'get_user_todos', allParamsToNumber],
+    'GET    /team/:team_id/user/:user_id/todos': ['func', 'get_member_todos', allParamsToNumber],
+    'GET    /team/:team_id/todos':               ['func', 'get_team_todos', allParamsToNumber],
+    'PUT    /todo/:todo_id':                     ['proc', 'update_todo', allParamsToNumber],
+    'DELETE /todo/:todo_id':                     ['proc', 'delete_todo', allParamsToNumber],
 
     //--------------- Roles: Global ---------------//
     'POST   /global-role/create':                        ['proc', 'create_global_role'],

@@ -18,15 +18,20 @@ export const z_email_opt = z_email.optional();
 
 export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
     //----- Functions -----//
+    get_all_users:              [],
     get_user_by_email:          [["email", z_email]],
     get_user_by_id:             [["user_id", z_id]],
+    get_user_teams:             [["user_id", z_id]],
     get_user_global_roles:      [["user_id", z_id]],
+    get_user_todos:             [["user_id", z_id]],
 
+    get_all_teams:              [],
     get_team_by_id:             [["team_id", z_id]],
     get_team_members:           [["team_id", z_id]],
     get_team_membership:        [["user_id", z_id], ["team_id", z_id]],
     get_team_todos:             [["team_id", z_id]],
 
+    get_member_todos:             [["team_id", z_id], ["user_id", z_id]],
     get_todo_by_id:             [["todo_id", z_id]],
 
     get_member_local_roles:     [["member_id", z_id]],
