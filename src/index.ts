@@ -10,8 +10,8 @@ const app = express();
 const PORT = Number(process.env.PORT ?? 3000);
 
 app.use(cors());
-app.use(attachCsrfToken());
-app.use(verifyCsrfToken());
+// app.use(attachCsrfToken());
+// app.use(verifyCsrfToken());
 app.use(express.json());
 app.use("/api", router);
 

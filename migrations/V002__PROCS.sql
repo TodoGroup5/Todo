@@ -29,6 +29,8 @@
 -- Todos:
 --  - create_todo
 --  - get_todo_by_id
+--  - get_user_todos
+--  - get_member_todos
 --  - get_team_todos
 --  - update_todo
 --  - delete_todo
@@ -67,6 +69,15 @@ CREATE OR REPLACE PROCEDURE create_user(
 AS $$
 BEGIN
     INSERT INTO users (name, email, password_hash, two_fa_secret) VALUES (p_name, p_email, p_password_hash, p_two_fa_secret);
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION get_all_users()
+RETURNS SETOF users AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM users;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -131,6 +142,15 @@ CREATE OR REPLACE PROCEDURE create_team(p_name VARCHAR, p_description VARCHAR)
 AS $$
 BEGIN
     INSERT INTO teams (name, description) VALUES (p_name, p_description);
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION get_all_teams()
+RETURNS SETOF teams AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM teams;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -340,6 +360,88 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION get_user_todos(p_user_id INTEGER)
+RETURNS TABLE (
+    id INTEGER,
+    created_by INTEGER,
+    assigned_to INTEGER,
+    team_id INTEGER,
+    title VARCHAR,
+    description VARCHAR,
+    status_id INTEGER,
+    status_name VARCHAR,
+    due_date DATE,
+    is_deleted BOOLEAN,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    completed_at TIMESTAMP
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        t.id,
+        t.created_by,
+        t.assigned_to,
+        t.team_id,
+        t.title,
+        t.description,
+        t.status AS status_id,
+        s.name AS status_name,
+        t.due_date,
+        t.is_deleted,
+        t.created_at,
+        t.updated_at,
+        t.completed_at
+    FROM todos t
+    JOIN statuses s ON t.status = s.id
+    LEFT JOIN team_memberships tm ON t.assigned_to = tm.id
+    WHERE (t.created_by = p_user_id OR tm.user_id = p_user_id)
+      AND t.is_deleted = FALSE;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION get_member_todos(p_team_id INTEGER, p_user_id INTEGER)
+RETURNS TABLE (
+    id INTEGER,
+    created_by INTEGER,
+    assigned_to INTEGER,
+    team_id INTEGER,
+    title VARCHAR,
+    description VARCHAR,
+    status_id INTEGER,
+    status_name VARCHAR,
+    due_date DATE,
+    is_deleted BOOLEAN,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    completed_at TIMESTAMP
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        t.id,
+        t.created_by,
+        t.assigned_to,
+        t.team_id,
+        t.title,
+        t.description,
+        t.status AS status_id,
+        s.name AS status_name,
+        t.due_date,
+        t.is_deleted,
+        t.created_at,
+        t.updated_at,
+        t.completed_at
+    FROM todos t
+    JOIN statuses s ON t.status = s.id
+    LEFT JOIN team_memberships tm ON t.assigned_to = tm.id
+    WHERE t.team_id = p_team_id
+      AND (t.created_by = p_user_id OR tm.user_id = p_user_id)
+      AND t.is_deleted = FALSE;
+END;
+$$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE FUNCTION get_team_todos(p_team_id INTEGER)
 RETURNS TABLE (
@@ -349,7 +451,7 @@ RETURNS TABLE (
     team_id INTEGER,
     title VARCHAR,
     description VARCHAR,
-    status_id VARCHAR,
+    status_id INTEGER,
     status_name VARCHAR,
     due_date DATE,
     is_deleted BOOLEAN,
