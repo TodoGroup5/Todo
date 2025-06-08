@@ -18,11 +18,6 @@ const distPath = path.join(__dirname, '../client/dist');  // or '../client/build
 // Serve static React files
 app.use(express.static(distPath));
 
-// For any other routes, so React Router can handle routing
-app.get('*', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
-});
-
 app.listen(PORT, () => {
 	console.log(`Server is running on http://localhost:${PORT}`);
 });

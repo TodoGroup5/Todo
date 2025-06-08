@@ -74,8 +74,9 @@ jobs:
           pm2 stop todo-app || true
           pm2 delete todo-app || true
 
-          # Start your backend (make sure the path is correct)
-          pm2 start dist/server.js --name "todo-app"
+          # Start server
+          cd ..
+          pm2 start server/dist/server.js --name "todo-app"
 
           # Save PM2 config
           pm2 save
