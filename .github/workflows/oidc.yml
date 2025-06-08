@@ -1,4 +1,4 @@
-name: Terraform Deployment Pipeline
+name: Deployment Pipeline
 
 on:
   workflow_dispatch:
@@ -35,3 +35,90 @@ jobs:
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
+
+  deploy:
+    name: Build & Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: terraform
+
+    steps:
+      # === Code Checkout ===
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # === Setup Node.js ===
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      # === Install Dependencies ===
+      - name: Install Root Dependencies
+        run: npm install
+
+      - name: Install Client Dependencies
+        working-directory: ./client
+        run: npm install
+
+      # === Build Project ===
+      - name: Build Root App
+        run: npm run build
+
+      # === Package Deployment Artifacts ===
+      - name: Create Deployment Package
+        run: |
+          mkdir -p server
+          cp -r dist server/
+          mkdir -p server/client 
+          cp -r client/dist server/client/dist
+          cp package.json package-lock.json server/
+          tar -czf deploy.tar.gz server
+          rm -rf server
+
+      # === Transfer Package to EC2 ===
+      - name: Copy Files to EC2
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          source: "deploy.tar.gz"
+          target: "/home/ec2-user/"
+
+      # === Deploy on EC2 ===
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+
+            DEPLOY_DIR="/home/ec2-user/todoapp"
+            PACKAGE="/home/ec2-user/deploy.tar.gz"
+
+            # Prepare deployment directory
+            rm -rf $DEPLOY_DIR
+            mkdir -p $DEPLOY_DIR
+            cd $DEPLOY_DIR
+
+            # Extract package and clean up
+            tar -xzf $PACKAGE
+            rm -f $PACKAGE
+
+            # Install production dependencies
+            cd server
+            npm i
+
+            # Restart the app with PM2
+            pm2 stop todo-app || true
+            pm2 delete todo-app || true
+            pm2 start dist/server.js --name "todo-app"
+
+            # Save PM2 process list and enable on reboot
+            pm2 save
+            sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u ec2-user --hp /home/ec2-user || true
