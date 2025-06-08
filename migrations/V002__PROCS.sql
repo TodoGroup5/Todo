@@ -304,7 +304,20 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION get_todo_by_id(p_todo_id INTEGER)
-RETURNS TABLE (id INTEGER, created_by INTEGER, assigned_to INTEGER, team_id INTEGER, title VARCHAR, description VARCHAR, status VARCHAR, due_date DATE, is_deleted BOOLEAN, created_at TIMESTAMP, updated_at TIMESTAMP, completed_at TIMESTAMP) AS $$
+RETURNS TABLE (
+    id INTEGER,
+    created_by INTEGER,
+    assigned_to INTEGER,
+    team_id INTEGER,
+    title VARCHAR,
+    description VARCHAR,
+    status_id INTEGER,
+    status_name VARCHAR,
+    due_date DATE,
+    is_deleted BOOLEAN,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    completed_at TIMESTAMP) AS $$
 BEGIN
     RETURN QUERY
     SELECT
@@ -329,7 +342,20 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION get_team_todos(p_team_id INTEGER)
-RETURNS TABLE ( id INTEGER, created_by INTEGER, assigned_to INTEGER, team_id INTEGER, title VARCHAR, description VARCHAR, status VARCHAR, due_date DATE, is_deleted BOOLEAN, created_at TIMESTAMP, updated_at TIMESTAMP, completed_at TIMESTAMP) AS $$
+RETURNS TABLE (
+    id INTEGER,
+    created_by INTEGER,
+    assigned_to INTEGER,
+    team_id INTEGER,
+    title VARCHAR,
+    description VARCHAR,
+    status_id VARCHAR,
+    status_name VARCHAR,
+    due_date DATE,
+    is_deleted BOOLEAN,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    completed_at TIMESTAMP) AS $$
 BEGIN
     RETURN QUERY
     SELECT
@@ -340,7 +366,7 @@ BEGIN
         t.title,
         t.description,
         t.status AS status_id,
-        s.name AS status,
+        s.name AS status_name,
         t.due_date,
         t.is_deleted,
         t.created_at,
