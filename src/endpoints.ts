@@ -1,26 +1,9 @@
 import { Pool } from 'pg';
 import { type Request, type Response, Router } from 'express';
-import {
-	CallData,
-	callDB,
-	CallName,
-	CallType,
-	InvalidList,
-	ParamValidator,
-	parseParams,
-	ParseParamsResult,
-	TableResult,
-	type JSONResult,
-} from './db.js';
+import { CallData, callDB, CallName, CallType, InvalidList, ParamValidator, parseParams, ParseParamsResult, TableResult, type JSONResult } from './db.js';
 import { Repetitions } from './types.js';
 import { z_email, z_str } from './callValidators.js';
-import {
-	AuthenticatedRequest,
-	authenticateToken,
-	comparePassHash,
-	genJWT,
-	hashPassword,
-} from './auth.js';
+import { AuthenticatedRequest, authenticateToken, comparePassHash, genJWT, hashPassword } from './auth.js';
 
 //==================== Setup DB connection ====================//
 const router = Router();
@@ -40,18 +23,12 @@ function sendResponse<S, F>(
 	formatter: (r?: S) => any = (r) => r // Optionally format the result upon success
 ) {
 	const success = result.status === 'success';
-	res.status(success ? 200 : failCode).json(
-		success ? { status: 'success', data: formatter(result.data) } : result
-	);
+	res.status(success ? 200 : failCode).json(success ? { status: 'success', data: formatter(result.data) } : result);
 }
 
 type ParamsDict<T = unknown> = { [key: string]: T };
 type ParamFormatter<I = unknown, O = unknown> = (x: ParamsDict) => ParamsDict;
-function consReqHandler(
-	type: CallType,
-	call: CallName,
-	urlParamFormatter: ParamFormatter = (x) => x
-) {
+function consReqHandler(type: CallType, call: CallName, urlParamFormatter: ParamFormatter = (x) => x) {
 	return async (req: Request, res: Response) => {
 		console.log('BODY:', req.body);
 		console.log('PARAMS:', urlParamFormatter(req.params ?? {}));
@@ -70,20 +47,18 @@ function consReqHandler(
 }
 
 const allParamsToNumber: ParamFormatter<unknown, number> = (params) => {
-  const res: ParamsDict<number> = {};
-  Object.keys(params).forEach(key => {
-    res[key] = Number(params[key]);
-    console.log("OUT:", res[key]);
-  });
-  return res;
+	const res: ParamsDict<number> = {};
+	Object.keys(params).forEach((key) => {
+		res[key] = Number(params[key]);
+		console.log('OUT:', res[key]);
+	});
+	return res;
 };
 
 type Method = 'get' | 'post' | 'put' | 'delete';
 type Space = Repetitions<' ', 20>;
 type EasyEndpointMap = {
-	[key: `${Uppercase<Method>}${Space}/${string}`]:
-		| [CallType, CallName]
-		| [CallType, CallName, ParamFormatter];
+	[key: `${Uppercase<Method>}${Space}/${string}`]: [CallType, CallName] | [CallType, CallName, ParamFormatter];
 };
 
 //==================== API endpoints ====================//
@@ -146,16 +121,12 @@ router.post('/login', async (req: Request, res: Response) => {
 });
 
 // Example protected route
-router.get(
-	'/profile',
-	authenticateToken,
-	(req: AuthenticatedRequest, res: Response) => {
-		res.json({
-			message: 'Welcome!',
-			user: (req as AuthenticatedRequest).user,
-		});
-	}
-);
+router.get('/profile', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
+	res.json({
+		message: 'Welcome!',
+		user: (req as AuthenticatedRequest).user,
+	});
+});
 
 const easyEndpoints: EasyEndpointMap = {
 	//--------------- Users ---------------//
@@ -173,29 +144,13 @@ const easyEndpoints: EasyEndpointMap = {
 
 	//--------------- Membership ---------------//
 	'POST   /team-membership/add': ['proc', 'add_team_member'],
-	'GET    /team-membership/user/:user_id/team/:team_id': [
-		'func',
-		'get_team_membership',
-		allParamsToNumber,
-	],
-	'GET    /team/:team_id/members': [
-		'func',
-		'get_team_members',
-		allParamsToNumber,
-	],
-	'DELETE /team-membership/user/:user_id/team/:team_id': [
-		'proc',
-		'remove_team_member',
-		allParamsToNumber,
-	],
+	'GET    /team-membership/user/:user_id/team/:team_id': ['func', 'get_team_membership', allParamsToNumber],
+	'GET    /team/:team_id/members': ['func', 'get_team_members', allParamsToNumber],
+	'DELETE /team-membership/user/:user_id/team/:team_id': ['proc', 'remove_team_member', allParamsToNumber],
 
 	//--------------- Statuses ---------------//
 	'POST   /status/create': ['proc', 'create_status'],
-	'GET    /status/:status_id': [
-		'func',
-		'get_status_by_id',
-		allParamsToNumber,
-	],
+	'GET    /status/:status_id': ['func', 'get_status_by_id', allParamsToNumber],
 	'GET    /status/name/:name': ['func', 'get_status_by_name'],
 	'PUT    /status/:status_id': ['proc', 'update_status', allParamsToNumber],
 	'DELETE /status/:status_id': ['proc', 'delete_status', allParamsToNumber],
@@ -203,89 +158,34 @@ const easyEndpoints: EasyEndpointMap = {
 	//--------------- Todos ---------------//
 	'POST   /todo/create': ['proc', 'create_todo'],
 	'GET    /todo/:todo_id': ['func', 'get_todo_by_id', allParamsToNumber],
-	'GET    /team/:team_id/todos': [
-		'func',
-		'get_team_todos',
-		allParamsToNumber,
-	],
+	'GET    /team/:team_id/todos': ['func', 'get_team_todos', allParamsToNumber],
 	'PUT    /todo/:todo_id': ['proc', 'update_todo', allParamsToNumber],
 	'DELETE /todo/:todo_id': ['proc', 'delete_todo', allParamsToNumber],
 
 	//--------------- Roles: Global ---------------//
 	'POST   /global-role/create': ['proc', 'create_global_role'],
-	'GET    /global-role/:role_id': [
-		'func',
-		'get_global_role_by_id',
-		allParamsToNumber,
-	],
+	'GET    /global-role/:role_id': ['func', 'get_global_role_by_id', allParamsToNumber],
 	'GET    /global-role/name/:name': ['func', 'get_global_role_by_name'],
-	'PUT    /global-role/:role_id': [
-		'proc',
-		'update_global_role',
-		allParamsToNumber,
-	],
-	'DELETE /global-role/:role_id': [
-		'proc',
-		'delete_global_role',
-		allParamsToNumber,
-	],
-	'POST   /user/:user_id/global-role/:role_id/assign': [
-		'proc',
-		'assign_global_role',
-		allParamsToNumber,
-	],
-	'GET    /user/:user_id/global-roles': [
-		'func',
-		'get_user_global_roles',
-		allParamsToNumber,
-	],
-	'DELETE /user/:user_id/global-role/:role_id/revoke': [
-		'proc',
-		'revoke_global_role',
-		allParamsToNumber,
-	],
+	'PUT    /global-role/:role_id': ['proc', 'update_global_role', allParamsToNumber],
+	'DELETE /global-role/:role_id': ['proc', 'delete_global_role', allParamsToNumber],
+	'POST   /user/:user_id/global-role/:role_id/assign': ['proc', 'assign_global_role', allParamsToNumber],
+	'GET    /user/:user_id/global-roles': ['func', 'get_user_global_roles', allParamsToNumber],
+	'DELETE /user/:user_id/global-role/:role_id/revoke': ['proc', 'revoke_global_role', allParamsToNumber],
 
 	//--------------- Roles: Local ---------------//
 	'POST   /local-role/create': ['proc', 'create_local_role'],
-	'GET    /local-role/:role_id': [
-		'func',
-		'get_local_role_by_id',
-		allParamsToNumber,
-	],
+	'GET    /local-role/:role_id': ['func', 'get_local_role_by_id', allParamsToNumber],
 	'GET    /local-role/name/:name': ['func', 'get_local_role_by_name'],
-	'PUT    /local-role/:role_id': [
-		'proc',
-		'update_local_role',
-		allParamsToNumber,
-	],
-	'DELETE /local-role/:role_id': [
-		'proc',
-		'delete_local_role',
-		allParamsToNumber,
-	],
-	'POST   /team-membership/:member_id/local-role/:role_id/assign': [
-		'proc',
-		'assign_local_role',
-		allParamsToNumber,
-	],
-	'GET    /team-membership/:member_id/local-roles': [
-		'func',
-		'get_member_local_roles',
-		allParamsToNumber,
-	],
-	'DELETE /team-membership/:member_id/local-role/:role_id/revoke': [
-		'proc',
-		'revoke_local_role',
-		allParamsToNumber,
-	],
+	'PUT    /local-role/:role_id': ['proc', 'update_local_role', allParamsToNumber],
+	'DELETE /local-role/:role_id': ['proc', 'delete_local_role', allParamsToNumber],
+	'POST   /team-membership/:member_id/local-role/:role_id/assign': ['proc', 'assign_local_role', allParamsToNumber],
+	'GET    /team-membership/:member_id/local-roles': ['func', 'get_member_local_roles', allParamsToNumber],
+	'DELETE /team-membership/:member_id/local-role/:role_id/revoke': ['proc', 'revoke_local_role', allParamsToNumber],
 };
 
 Object.entries(easyEndpoints).forEach(([id, [type, call, fmt]]) => {
 	const [method, endpt] = id.split(/\s+/);
-	router[method.toLowerCase() as Method](
-		endpt,
-		consReqHandler(type, call, fmt)
-	);
+	router[method.toLowerCase() as Method](endpt, consReqHandler(type, call, fmt));
 });
 
 export default router;
