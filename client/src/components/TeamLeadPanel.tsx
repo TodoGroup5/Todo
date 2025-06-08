@@ -5,7 +5,7 @@ interface Todo {
   id: number;
   title: string;
   description: string;
-  status: number; // Changed from string to number to match DB
+  status: number;
   assigned_to: number;
   created_by: number;
   created_at: string;
@@ -22,6 +22,11 @@ interface TeamMember {
   user_email: string;
 }
 
+interface Status {
+  id: number,
+  name: string
+}
+
 const TeamLeadPanel: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +36,7 @@ const TeamLeadPanel: React.FC = () => {
     assignedTo: ''
   });
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
 
   const fetchTeamTodos = useCallback(async () => {
     const teamId: number = 1;
@@ -50,10 +56,10 @@ const TeamLeadPanel: React.FC = () => {
   }, []);
 
   const fetchTeamMembers = useCallback(async () => {
-    const teamId = 1;
+    const teamId: number = 1;
     try {
       const response = await CrudService.read<TeamMember[]>(`/team/${teamId}/members`);
-      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); return; }
       if (response.data == null) return;
 
       console.log("MEMBERS:", response.data);
@@ -66,10 +72,26 @@ const TeamLeadPanel: React.FC = () => {
     }
   }, []);
 
+  const fetchStatuses = useCallback(async () => {
+    try {
+      const response = await CrudService.read<Status[]>(`/status`);
+      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); return; }
+      if (response.data == null) return;
+
+      console.log("STATUSES:", response.data);
+
+      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
+      setStatuses(response.data.data ?? []);
+    } catch (err) {
+      console.log("Failed to fetch statuses", err);
+    }
+  }, [])
+
   useEffect(() => { 
     fetchTeamTodos(); 
     fetchTeamMembers(); 
-  }, [fetchTeamTodos, fetchTeamMembers]);
+    fetchStatuses();
+  }, [fetchTeamTodos, fetchTeamMembers, fetchStatuses]);
 
   const handleCreateTodo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,10 +116,7 @@ const TeamLeadPanel: React.FC = () => {
 
       if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
 
-      // Refresh the todos list after successful creation
       fetchTeamTodos();
-      
-      // Reset the form
       setNewTodo({ title: '', description: '', assignedTo: '' });
       
     } catch (err) { 
@@ -117,7 +136,6 @@ const TeamLeadPanel: React.FC = () => {
 
       if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
 
-      // Update the local state
       setTodos(todos.map(todo =>
         todo.id === todoId ? { ...todo, status: getStatusId(newStatus) } : todo
       ));
@@ -126,27 +144,16 @@ const TeamLeadPanel: React.FC = () => {
     }
   };
 
-  // Helper function to map status IDs to names
   const getStatusName = (statusId: number): string => {
-    switch (statusId) {
-      case 1: return 'pending';
-      case 2: return 'in-progress';  
-      case 3: return 'completed';
-      default: return 'pending';
-    }
+    const status = statuses.find(s => s.id === statusId);
+    return status ? status.name : 'unknown';
   };
 
-  // Helper function to map status names to IDs
-  const getStatusId = (status: string): number => {
-    switch (status) {
-      case 'pending': return 1;
-      case 'in-progress': return 2;  
-      case 'completed': return 3;
-      default: return 1;
-    }
+  const getStatusId = (statusName: string): number => {
+    const status = statuses.find(s => s.name === statusName);
+    return status ? status.id : 1;
   };
 
-  // Helper function to get team member name by ID
   const getTeamMemberName = (userId: number): string => {
     const member = teamMembers.find(m => m.user_id === userId);
     return member ? member.user_name : `User ${userId}`;
@@ -200,9 +207,9 @@ const TeamLeadPanel: React.FC = () => {
                   onChange={(e) => handleStatusChange(todo.id, e.target.value)}
                   className={`status-select status-${getStatusName(todo.status)}`}
                 >
-                  <option value="pending">Pending</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="completed">Completed</option>
+                  {statuses.map(status => (
+                    <option key={status.id} value={status.name}>{status.name}</option>
+                  ))}
                 </select>
               </div>
               <p className="todo-description">{todo.description}</p>
