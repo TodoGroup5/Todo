@@ -130,13 +130,10 @@ jobs:
             cd server
             npm i
 
-            # Create .env file using passed environment variables
-            cat <<EOF > .env
-            DB_USER=$POSTGRES_USER
-            DB_PASS=$POSTGRES_PASS
-            DB_HOST=$POSTGRES_HOST
-            DB_NAME=$POSTGRES_DBNAME
-            EOF
+            export DB_USER=$POSTGRES_USER
+            export DB_PASS=$POSTGRES_PASS
+            export DB_HOST=$POSTGRES_HOST
+            export DB_NAME=$POSTGRES_DBNAME
 
             # Restart the app with PM2
             pm2 stop todo-app || true
