@@ -109,7 +109,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: POSTGRES_USER,POSTGRES_PASS,POSTGRES_HOST
+          envs: POSTGRES_USER,POSTGRES_PASS,POSTGRES_HOST,POSTGRES_DBNAME
           port: 22
           script: |
             set -e
