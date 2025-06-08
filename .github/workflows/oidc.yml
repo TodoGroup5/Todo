@@ -1,14 +1,19 @@
-name: Deploy using OIDC
+name: Terraform Deployment Pipeline
 
 on:
   workflow_dispatch:
 
-permissions:
-  id-token: write
-  contents: read
-
 jobs:
-  deploy:
+  checkout:
+    name: Checkout Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+  setup:
+    name: Setup AWS & Terraform
+    needs: checkout
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -26,6 +31,16 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
+  plan:
+    name: Terraform Plan
+    needs: setup
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./terraform/infrastructure
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Terraform Init
         run: terraform init
@@ -33,6 +48,16 @@ jobs:
       - name: Terraform Plan
         run: terraform plan
 
+  apply:
+    name: Terraform Apply
+    needs: plan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./terraform/infrastructure
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Terraform Apply
         run: terraform apply -auto-approve
-
