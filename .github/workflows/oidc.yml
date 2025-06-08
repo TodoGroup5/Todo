@@ -159,7 +159,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials via OIDC
+      - name: Fetch parameters
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
