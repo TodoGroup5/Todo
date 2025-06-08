@@ -131,7 +131,7 @@ router.get('/profile', authenticateToken, (req: AuthenticatedRequest, res: Respo
 
 const easyEndpoints: EasyEndpointMap = {
     //--------------- Users ---------------//
-    'POST   /user/create':         ['proc', 'delete_local_role'], // matches original, although name suggests maybe incorrect call?
+    'POST   /user/create':         ['proc', 'create_user'], // matches original, although name suggests maybe incorrect call?
     'GET    /user/all':            ['func', 'get_all_users'],
     'GET    /user/:user_id':       ['func', 'get_user_by_id', allParamsToNumber],
     'GET    /user/email/:email':   ['func', 'get_user_by_email'],
