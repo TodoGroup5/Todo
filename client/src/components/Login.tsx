@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { CrudService } from '../api/crudService.ts';
 
 interface SignupData {
   username: string;
@@ -18,13 +19,11 @@ const AuthPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   
-  // Login state
   const [loginData, setLoginData] = useState({
     username: '',
     password: ''
   });
   
-  // Signup state
   const [signupData, setSignupData] = useState<SignupData>({
     username: '',
     email: '',
@@ -62,7 +61,6 @@ const AuthPage: React.FC = () => {
     setError('');
     setSuccessMessage('');
 
-    // Validation
     if (!signupData.username || !signupData.email || !signupData.password || !signupData.confirmPassword) {
       setError('Please fill in all fields');
       setLoading(false);
@@ -94,37 +92,28 @@ const AuthPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: signupData.username,
-          email: signupData.email,
-          password: signupData.password,
-          role: signupData.role
-        })
-      });
+      const userData = {
+        username: signupData.username,
+        email: signupData.email,
+        password: signupData.password,
+      };
 
-      if (response.ok) {
-        setSuccessMessage('Account created successfully! Please log in.');
-        setSignupData({
-          username: '',
-          email: '',
-          password: '',
-          confirmPassword: '',
-          role: 'user'
-        });
-        // Switch to login after successful signup
-        setTimeout(() => {
-          setIsLogin(true);
-          setSuccessMessage('');
-        }, 2000);
-      } else {
-        const data = await response.json();
-        setError(data.message || 'Failed to create account');
+      const response = await CrudService.create('/signup', userData);
+      
+      if (response.error) { 
+        throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); 
       }
-    } catch (err) {
-      // Mock success
+      
+      if (response.data == null) {
+        throw new Error("No response data received");
+      }
+
+      console.log("SIGNUP RESPONSE:", response.data);
+
+      if (response.data.status === 'failed') { 
+        throw new Error("[DATA]: " + response.data.error); 
+      }
+
       setSuccessMessage('Account created successfully! Please log in.');
       setSignupData({
         username: '',
@@ -133,11 +122,15 @@ const AuthPage: React.FC = () => {
         confirmPassword: '',
         role: 'user'
       });
-      // Switch to login after successful signup
+      
       setTimeout(() => {
         setIsLogin(true);
         setSuccessMessage('');
       }, 2000);
+
+    } catch (err) {
+      console.log("Could not create user account", err);
+      setError(err instanceof Error ? err.message : 'Failed to create account. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -147,7 +140,6 @@ const AuthPage: React.FC = () => {
     setIsLogin(!isLogin);
     setError('');
     setSuccessMessage('');
-    // Reset forms when switching
     setLoginData({ username: '', password: '' });
     setSignupData({
       username: '',
