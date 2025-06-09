@@ -1,24 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { CrudService } from '../api/crudService.ts';
 
-interface UserSettings {
-  id: number;
-  name: string;
-  email: string;
-  two_fa_secret: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface UserRole {
-  user_id: number;
-  role_id: number;
-  role_name: string;
-}
+type UserInfo = {
+  "id": number,
+  "name": string,
+  "email": string,
+  "password_hash": string,
+  "two_fa_secret": string,
+  "role_ids": number[],
+  "role_names": string[]
+};
 
 const Settings: React.FC = () => {
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
-  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -38,13 +32,12 @@ const Settings: React.FC = () => {
   const currentUserId = 1; // Replace with actual user ID from auth
 
   useEffect(() => {
-    fetchUserSettings();
-    fetchUserRoles();
+    fetchUserInfo();
   }, []);
 
-  const fetchUserSettings = async () => {
+  const fetchUserInfo = async () => {
     try {
-      const response = await CrudService.read(`/user/${currentUserId}`);
+      const response = await CrudService.read<UserInfo[]>(`/user/${currentUserId}`);
       if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
       if (response.data == null) return;
 
@@ -53,8 +46,8 @@ const Settings: React.FC = () => {
       if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
 
       const userData = response.data.data;
-      if (userData && userData.length > 0) {
-        setUserSettings(userData[0]);
+      if (userData != null && userData?.length > 0) {
+        setUserInfo(userData[0]);
         setFormData(prev => ({
           ...prev,
           name: userData[0].name,
@@ -65,22 +58,6 @@ const Settings: React.FC = () => {
       console.log("Failed to fetch user settings", err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchUserRoles = async () => {
-    try {
-      const response = await CrudService.read(`/user/${currentUserId}/global-roles`);
-      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
-      if (response.data == null) return;
-
-      console.log("USER ROLES:", response.data);
-
-      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
-
-      setUserRoles(response.data.data ?? []);
-    } catch (err) {
-      console.log("Failed to fetch user roles", err);
     }
   };
 
@@ -124,7 +101,7 @@ const Settings: React.FC = () => {
       if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
 
       // Refresh user settings
-      fetchUserSettings();
+      fetchUserInfo();
       setSuccessMessage('Profile updated successfully!');
     } catch (err) {
       console.log("Failed to update profile", err);
@@ -164,8 +141,7 @@ const Settings: React.FC = () => {
     try {
       // You'll need to create a custom endpoint for password changes
       // as it requires special handling with password hashing
-      const response = await CrudService.customRequest('/user/change-password', 'POST', {
-        user_id: currentUserId,
+      const response = await CrudService.customRequest(`/user/${currentUserId}`, 'PUT', {
         current_password: formData.currentPassword,
         new_password: formData.newPassword
       });
@@ -197,7 +173,7 @@ const Settings: React.FC = () => {
   };
 
   const handleToggle2FA = async () => {
-    const twoFactorEnabled = !!userSettings?.two_fa_secret;
+    const twoFactorEnabled = !!userInfo?.two_fa_secret;
     
     if (!twoFactorEnabled) {
       setShowQR(true);
@@ -215,7 +191,7 @@ const Settings: React.FC = () => {
 
         if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
 
-        fetchUserSettings(); // Refresh to get updated data
+        fetchUserInfo(); // Refresh to get updated data
         setSuccessMessage('Two-factor authentication disabled');
       } catch (err) {
         console.log("Failed to disable 2FA", err);
@@ -246,7 +222,7 @@ const Settings: React.FC = () => {
 
       if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
 
-      fetchUserSettings(); // Refresh to get updated data
+      fetchUserInfo(); // Refresh to get updated data
       setShowQR(false);
       setTwoFactorCode('');
       setSuccessMessage('Two-factor authentication enabled successfully!');
@@ -260,20 +236,16 @@ const Settings: React.FC = () => {
     }, 3000);
   };
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
   const getPrimaryRole = (): string => {
-    if (userRoles.length === 0) return 'User';
-    return userRoles[0].role_name;
+    if (userInfo == null || userInfo.role_names.length === 0) return 'User';
+    return userInfo.role_names[0];
   };
 
   if (loading) return <div className="dashboard-content">Loading settings...</div>;
 
-  if (!userSettings) return <div className="dashboard-content">Error loading user settings</div>;
+  if (!userInfo) return <div className="dashboard-content">Error loading user settings</div>;
 
-  const twoFactorEnabled = !!userSettings.two_fa_secret;
+  const twoFactorEnabled = !!userInfo.two_fa_secret;
 
   return (
     <div className="dashboard-content">
@@ -457,24 +429,24 @@ const Settings: React.FC = () => {
           <div className="users-table">
             <div className="table-row">
               <strong>Name:</strong>
-              <span>{userSettings.name}</span>
+              <span>{userInfo.name}</span>
             </div>
             <div className="table-row">
               <strong>Email:</strong>
-              <span>{userSettings.email}</span>
+              <span>{userInfo.email}</span>
             </div>
             <div className="table-row">
               <strong>Role:</strong>
               <span className="role-badge">{getPrimaryRole()}</span>
             </div>
-            <div className="table-row">
+            {/* <div className="table-row">
               <strong>Account Created:</strong>
-              <span>{formatDate(userSettings.created_at)}</span>
+              <span>{formatDate(userInfo.created_at)}</span>
             </div>
             <div className="table-row">
               <strong>Last Updated:</strong>
-              <span>{formatDate(userSettings.updated_at)}</span>
-            </div>
+              <span>{formatDate(userInfo.updated_at)}</span>
+            </div> */}
             <div className="table-row">
               <strong>2FA Status:</strong>
               <span style={{ color: twoFactorEnabled ? '#38a169' : '#c53030' }}>
