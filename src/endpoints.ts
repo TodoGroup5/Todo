@@ -4,19 +4,23 @@ import { CallData, callDB, CallName, CallType, InvalidList, ParamValidator, pars
 import { Repetitions } from './types.js';
 import { z_email, z_id, z_str, z_str_nonempty, z_str_opt } from './callValidators.js';
 import { AuthenticatedRequest, authenticateToken, comparePassHash, genJWT, hashPassword } from './auth.js';
+import { isProductionEnvironment } from './lib/deployment.js';
 
 //==================== Setup DB connection ====================//
 const router = Router();
-const dbPool = new Pool({
+const dbConfig: any = {
     database: process.env.DB_NAME || 'todo_db',
     host: process.env.DB_HOST || 'localhost',
     port: Number(process.env.DB_PORT || '5432'),
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASS || 'password',
-    ssl: {
-        rejectUnauthorized: false 
-    }
-});
+}
+
+if (isProductionEnvironment()) {
+    dbConfig.ssl = { rejectUnauthorized: false };
+}
+
+const dbPool = new Pool(dbConfig);
 
 
 // Helper function to handle responses

@@ -192,9 +192,9 @@ const AdminPanel: React.FC = () => {
     return user.role_ids[0];
   };
 
-  // const formatDate = (dateString: string): string => {
-  //   return new Date(dateString).toLocaleDateString();
-  // };
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString();
+  };
 
   if (loading) return <div className="dashboard-content">Loading users...</div>;
 
