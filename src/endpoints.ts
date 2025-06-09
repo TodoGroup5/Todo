@@ -183,7 +183,7 @@ router.get('/profile', authenticateToken, (req: AuthenticatedRequest, res: Respo
 const easyEndpoints: EasyEndpointMap = {
     //--------------- Users ---------------//
     'POST   /user/create':         ['func', 'create_user'],
-    'GET    /user/all':            ['func', 'get_all_users'],
+    'GET    /user/all':            ['func', 'get_all_users', paramsToNumber()],
     'GET    /user/:user_id':       ['func', 'get_user_by_id', paramsToNumber()],
     'GET    /user/email/:email':   ['func', 'get_user_by_email'],
     'GET    /user/:user_id/teams': ['func', 'get_user_teams', paramsToNumber()],
