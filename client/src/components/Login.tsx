@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { CrudService } from '../api/crudService.ts';
 
 interface SignupData {
-  username: string;
+  name: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -25,7 +25,7 @@ const AuthPage: React.FC = () => {
   });
   
   const [signupData, setSignupData] = useState<SignupData>({
-    username: '',
+    name: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -61,13 +61,13 @@ const AuthPage: React.FC = () => {
     setError('');
     setSuccessMessage('');
 
-    if (!signupData.username || !signupData.email || !signupData.password || !signupData.confirmPassword) {
+    if (!signupData.name || !signupData.email || !signupData.password || !signupData.confirmPassword) {
       setError('Please fill in all fields');
       setLoading(false);
       return;
     }
 
-    if (signupData.username.length < 3) {
+    if (signupData.name.length < 3) {
       setError('Username must be at least 3 characters long');
       setLoading(false);
       return;
@@ -93,7 +93,7 @@ const AuthPage: React.FC = () => {
 
     try {
       const userData = {
-        username: signupData.username,
+        name: signupData.name,
         email: signupData.email,
         password: signupData.password,
       };
@@ -116,7 +116,7 @@ const AuthPage: React.FC = () => {
 
       setSuccessMessage('Account created successfully! Please log in.');
       setSignupData({
-        username: '',
+        name: '',
         email: '',
         password: '',
         confirmPassword: '',
@@ -142,7 +142,7 @@ const AuthPage: React.FC = () => {
     setSuccessMessage('');
     setLoginData({ username: '', password: '' });
     setSignupData({
-      username: '',
+      name: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -213,8 +213,8 @@ const AuthPage: React.FC = () => {
                 <input
                   id="signup-username"
                   type="text"
-                  value={signupData.username}
-                  onChange={(e) => handleSignupInputChange('username', e.target.value)}
+                  value={signupData.name}
+                  onChange={(e) => handleSignupInputChange('name', e.target.value)}
                   disabled={loading}
                   placeholder="Choose a username"
                 />

@@ -89,7 +89,7 @@ function callSuccessWithData<S>(res: JSONResult<unknown[], unknown>): res is { s
 
 router.post('/signup', async (req: Request, res: Response) => {
     //----- Validate request params -----//
-    const expected: ParamValidator[] = [ ["name", z_str_nonempty], ["email", z_email], ["password_hash", z_str_nonempty] ];
+    const expected: ParamValidator[] = [ ["name", z_str_nonempty], ["email", z_email], ["password", z_str_nonempty] ];
     const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
     if (parseRes.status === 'failed') {
         sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
