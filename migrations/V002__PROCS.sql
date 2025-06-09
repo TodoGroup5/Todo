@@ -60,49 +60,104 @@
 
 
 ---------- Users Procedures ----------
-CREATE OR REPLACE PROCEDURE create_user(
+CREATE OR REPLACE FUNCTION create_user(
     p_name VARCHAR,
     p_email VARCHAR,
     p_password_hash VARCHAR,
     p_two_fa_secret VARCHAR DEFAULT NULL
 )
+RETURNS TABLE(user_id INT)
+LANGUAGE plpgsql
 AS $$
 BEGIN
-    INSERT INTO users (name, email, password_hash, two_fa_secret) VALUES (p_name, p_email, p_password_hash, p_two_fa_secret);
+    RETURN QUERY
+    INSERT INTO users (name, email, password_hash, two_fa_secret)
+    VALUES (p_name, p_email, p_password_hash, p_two_fa_secret)
+    RETURNING id;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
+-- CREATE OR REPLACE FUNCTION get_all_users()
+-- RETURNS SETOF users AS $$
+-- BEGIN
+--     RETURN QUERY
+--     SELECT * FROM users;
+-- END;
+-- $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION get_all_users()
-RETURNS SETOF users AS $$
+RETURNS TABLE (id INTEGER, name VARCHAR, email VARCHAR, role_ids INTEGER[], role_names VARCHAR[]) AS $$
 BEGIN
     RETURN QUERY
-    SELECT * FROM users;
-END;
-$$ LANGUAGE plpgsql;
-
-
-CREATE OR REPLACE FUNCTION get_user_by_id(p_user_id INTEGER)
-RETURNS TABLE (id INTEGER, name VARCHAR, email VARCHAR, password_hash VARCHAR, two_fa_secret VARCHAR, role_id INTEGER, role_name VARCHAR) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT u.id, u.name, u.email, u.password_hash, u.two_fa_secret, ugr.role_id, gr.name AS role_name
+    SELECT
+        u.id,
+        u.name,
+        u.email,
+        ARRAY_AGG(ugr.role_id ORDER BY ugr.role_id DESC) AS role_ids,
+        ARRAY_AGG(gr.name ORDER BY ugr.role_id DESC) AS role_names
     FROM users u
     LEFT JOIN user_global_roles ugr ON u.id = ugr.user_id
     LEFT JOIN global_roles gr ON ugr.role_id = gr.id
+    GROUP BY u.id, u.name, u.email;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_user_secrets(p_user_id INTEGER)
+RETURNS TABLE (id INTEGER, name VARCHAR, email VARCHAR, password_hash VARCHAR, two_fa_secret VARCHAR) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT u.id, u.name, u.email, u.password_hash, u.two_fa_secret
+    FROM users u
     WHERE u.id = p_user_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_user_by_id(p_user_id INTEGER)
+RETURNS TABLE (
+    id INTEGER,
+    name VARCHAR,
+    email VARCHAR,
+    role_ids INTEGER[],
+    role_names VARCHAR[]
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        u.id,
+        u.name,
+        u.email,
+        ARRAY_AGG(ugr.role_id ORDER BY ugr.role_id DESC) AS role_ids,
+        ARRAY_AGG(gr.name ORDER BY ugr.role_id DESC) AS role_names
+    FROM users u
+    LEFT JOIN user_global_roles ugr ON u.id = ugr.user_id
+    LEFT JOIN global_roles gr ON ugr.role_id = gr.id
+    WHERE u.id = p_user_id
+    GROUP BY u.id, u.name, u.email;
 END;
 $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION get_user_by_email(p_email VARCHAR)
-RETURNS TABLE (id INTEGER, name VARCHAR, email VARCHAR, password_hash VARCHAR, two_fa_secret VARCHAR, role_id INTEGER, role_name VARCHAR) AS $$
+RETURNS TABLE (
+    id INTEGER,
+    name VARCHAR,
+    email VARCHAR,
+    role_ids INTEGER[],
+    role_names VARCHAR[]
+) AS $$
 BEGIN
     RETURN QUERY
-    SELECT u.id, u.name, u.email, u.password_hash, u.two_fa_secret, ugr.role_id, gr.name AS role_name FROM users u
+    SELECT
+        u.id,
+        u.name,
+        u.email,
+        ARRAY_AGG(ugr.role_id ORDER BY ugr.role_id DESC) AS role_ids,
+        ARRAY_AGG(gr.name ORDER BY ugr.role_id DESC) AS role_names
+    FROM users u
     LEFT JOIN user_global_roles ugr ON u.id = ugr.user_id
     LEFT JOIN global_roles gr ON ugr.role_id = gr.id
-    WHERE u.email = p_email;
+    WHERE u.email = p_email
+    GROUP BY u.id, u.name, u.email;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -113,8 +168,8 @@ RETURNS TABLE (
     team_name VARCHAR,
     team_description VARCHAR,
     membership_id INTEGER,
-    role_id INTEGER,
-    role_name VARCHAR
+    role_ids INTEGER[],
+    role_names VARCHAR[]
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -123,13 +178,14 @@ BEGIN
         t.name AS team_name,
         t.description AS team_description,
         tm.id AS membership_id,
-        mlr.role_id,
-        lr.name AS role_name
+        ARRAY_AGG(mlr.role_id ORDER BY mlr.role_id DESC) AS role_ids,
+        ARRAY_AGG(lr.name ORDER BY mlr.role_id DESC) AS role_names
     FROM team_memberships tm
     JOIN teams t ON tm.team_id = t.id
     LEFT JOIN member_local_roles mlr ON tm.id = mlr.member_id
     LEFT JOIN local_roles lr ON mlr.role_id = lr.id
-    WHERE tm.user_id = p_user_id;
+    WHERE tm.user_id = p_user_id
+    GROUP BY t.id, t.name, t.description, tm.id;
 END;
 $$ LANGUAGE plpgsql;
 
