@@ -139,7 +139,7 @@ jobs:
             PASSWORD_PEPPER=hash
             PASSWORD_SALT_ROUNDS=10
             JWT_SECRET=jwtsecret
-            PORT=8080
+            PORT=3000
             EOF
 
             # Restart the app with PM2
