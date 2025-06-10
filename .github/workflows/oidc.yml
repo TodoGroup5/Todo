@@ -135,7 +135,7 @@ jobs:
             DB_PASS=$POSTGRES_PASS
             DB_HOST=$POSTGRES_HOST
             DB_NAME=$POSTGRES_DBNAME
-            NODE_ENV=production
+            ENV=production
             PASSWORD_PEPPER=hash
             PASSWORD_SALT_ROUNDS=10
             JWT_SECRET=jwtsecret

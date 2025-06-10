@@ -60,7 +60,7 @@ resource "aws_instance" "web" {
               ssl_certificate_key /etc/nginx/ssl/privatessl.key;
 
               location / {
-                  proxy_pass http://localhost:8080;
+                  proxy_pass http://localhost:3000;
                   proxy_set_header Host \$host;
                   proxy_set_header X-Real-IP \$remote_addr;
               }

@@ -1,3 +1,4 @@
 export function isProductionEnvironment(): boolean {
-  return process.env.NODE_ENV === 'production';
+  console.log(process.env.ENV);
+  return process.env.ENV === 'production';
 }

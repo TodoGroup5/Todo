@@ -13,7 +13,8 @@ if (!isProductionEnvironment()) {
 	const __filename = fileURLToPath(import.meta.url);
 	dirname = path.dirname(__filename);
 } else {
-	dirname = __dirname;
+	const __filename = fileURLToPath(import.meta.url);
+	dirname = path.dirname(__filename);
 }
 
 //---------- Setup ----------//
@@ -31,6 +32,10 @@ const distPath = path.join(dirname, '../client/dist');
 
 // Serve static React files
 app.use(express.static(distPath));
+
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(dirname, '../client/dist', 'index.html'));
+});
 
 app.listen(PORT, () => {
 	console.log(`Server is running on http://localhost:${PORT}`);
