@@ -2,13 +2,19 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { CrudService } from '../api/crudService.ts';
+import UserStorageService from '../api/userStorageService.ts';
 
 interface SignupData {
-  username: string;
+  name: string;
   email: string;
   password: string;
   confirmPassword: string;
   role: string;
+}
+
+interface loginResponse {
+  user_id: number,
+  email: string,
 }
 
 const AuthPage: React.FC = () => {
@@ -20,12 +26,12 @@ const AuthPage: React.FC = () => {
   const navigate = useNavigate();
   
   const [loginData, setLoginData] = useState({
-    username: '',
+    email: '',
     password: ''
   });
   
   const [signupData, setSignupData] = useState<SignupData>({
-    username: '',
+    name: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -36,14 +42,37 @@ const AuthPage: React.FC = () => {
     setLoading(true);
     setError('');
 
-    if (!loginData.username || !loginData.password) {
+    const signInData = {
+      email: loginData.email,
+      password: loginData.password,
+    };
+
+    if (!signInData.email || !signInData.password) {
       setError('Please fill in all fields');
       setLoading(false);
       return;
     }
 
     try {
-      const success = await login(loginData.username, loginData.password);
+      const response = await CrudService.create<typeof signInData, loginResponse>('/login', signInData);
+      
+      if (response.error) { 
+        throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); 
+      }
+      
+      if (response.data == null) {
+        throw new Error("No response data received");
+      }
+
+      console.log("LOGIN RESPONSE:", response.data);
+
+      if (response.data.status === 'failed') { 
+        throw new Error("[DATA]: " + response.data.error); 
+      }
+
+      UserStorageService.setUser(response.data.data.user_id, response.data.data.email)
+
+      const success = await login(signInData.email, signInData.password);
       if (success) {
         navigate('/2fa');
       } else {
@@ -61,13 +90,13 @@ const AuthPage: React.FC = () => {
     setError('');
     setSuccessMessage('');
 
-    if (!signupData.username || !signupData.email || !signupData.password || !signupData.confirmPassword) {
+    if (!signupData.name || !signupData.email || !signupData.password || !signupData.confirmPassword) {
       setError('Please fill in all fields');
       setLoading(false);
       return;
     }
 
-    if (signupData.username.length < 3) {
+    if (signupData.name.length < 3) {
       setError('Username must be at least 3 characters long');
       setLoading(false);
       return;
@@ -93,12 +122,12 @@ const AuthPage: React.FC = () => {
 
     try {
       const userData = {
-        username: signupData.username,
+        name: signupData.name,
         email: signupData.email,
         password: signupData.password,
       };
 
-      const response = await CrudService.create('/signup', userData);
+      const response = await CrudService.create<typeof userData, {token: string}>('/signup', userData);
       
       if (response.error) { 
         throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); 
@@ -116,7 +145,7 @@ const AuthPage: React.FC = () => {
 
       setSuccessMessage('Account created successfully! Please log in.');
       setSignupData({
-        username: '',
+        name: '',
         email: '',
         password: '',
         confirmPassword: '',
@@ -140,9 +169,9 @@ const AuthPage: React.FC = () => {
     setIsLogin(!isLogin);
     setError('');
     setSuccessMessage('');
-    setLoginData({ username: '', password: '' });
+    setLoginData({ email: '', password: '' });
     setSignupData({
-      username: '',
+      name: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -179,8 +208,8 @@ const AuthPage: React.FC = () => {
                 <input
                   id="username"
                   type="text"
-                  value={loginData.username}
-                  onChange={(e) => handleLoginInputChange('username', e.target.value)}
+                  value={loginData.email}
+                  onChange={(e) => handleLoginInputChange('email', e.target.value)}
                   disabled={loading}
                   placeholder="Enter your username"
                 />
@@ -213,8 +242,8 @@ const AuthPage: React.FC = () => {
                 <input
                   id="signup-username"
                   type="text"
-                  value={signupData.username}
-                  onChange={(e) => handleSignupInputChange('username', e.target.value)}
+                  value={signupData.name}
+                  onChange={(e) => handleSignupInputChange('name', e.target.value)}
                   disabled={loading}
                   placeholder="Choose a username"
                 />
