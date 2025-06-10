@@ -78,3 +78,18 @@ resource "aws_instance" "web" {
     Name = "TodoGroup5-EC2"
   }
 }
+
+# Create an Elastic IP
+resource "aws_eip" "elastic_ec2" {
+  domain = "vpc"
+  
+  tags = {
+    Name = "ec2-eip"
+  }
+}
+
+# Associate the Elastic IP with the EC2 instance
+resource "aws_eip_association" "example" {
+  instance_id   = aws_instance.web.id
+  allocation_id = aws_eip.elastic_ec2.id
+}
