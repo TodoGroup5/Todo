@@ -10,7 +10,7 @@ export interface AuthenticatedRequest extends Request {
 //---------- Constants ----------//
 const saltRounds = Number(process.env.PASSWORD_SALT_ROUNDS ?? 10);
 const pepper = process.env.PASSWORD_PEPPER ?? "";
-const jwtSecret = process.env.JWT_SECRET ?? "";
+const jwtSecret = process.env.JWT_SECRET ?? "random string";
 
 //---------- Utils ----------//
 // Hash password w/ bcrypt

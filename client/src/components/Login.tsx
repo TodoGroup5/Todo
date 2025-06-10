@@ -20,7 +20,7 @@ const AuthPage: React.FC = () => {
   const navigate = useNavigate();
   
   const [loginData, setLoginData] = useState({
-    username: '',
+    email: '',
     password: ''
   });
   
@@ -36,14 +36,37 @@ const AuthPage: React.FC = () => {
     setLoading(true);
     setError('');
 
-    if (!loginData.username || !loginData.password) {
+    const signInData = {
+        email: loginData.email,
+        password: loginData.password,
+      };
+
+    if (!signInData.email || !signInData.password) {
       setError('Please fill in all fields');
       setLoading(false);
       return;
     }
 
     try {
-      const success = await login(loginData.username, loginData.password);
+      const response = await CrudService.create<typeof signInData, {token: string}>('/login', signInData);
+
+      if (response.error) { 
+        throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); 
+      }
+      
+      if (response.data == null) {
+        throw new Error("No response data received");
+      }
+
+      console.log("LOGIN RESPONSE:", response.data);
+
+      if (response.data.status === 'failed') { 
+        throw new Error("[DATA]: " + response.data.error); 
+      }
+
+      CrudService.setToken(response.data.token)
+
+      const success = await login(signInData.email, signInData.password);
       if (success) {
         navigate('/2fa');
       } else {
@@ -98,7 +121,7 @@ const AuthPage: React.FC = () => {
         password: signupData.password,
       };
 
-      const response = await CrudService.create('/signup', userData);
+      const response = await CrudService.create<typeof userData, {token: string}>('/signup', userData);
       
       if (response.error) { 
         throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); 
@@ -113,6 +136,8 @@ const AuthPage: React.FC = () => {
       if (response.data.status === 'failed') { 
         throw new Error("[DATA]: " + response.data.error); 
       }
+
+      CrudService.setToken(response.data.token)
 
       setSuccessMessage('Account created successfully! Please log in.');
       setSignupData({
@@ -140,7 +165,7 @@ const AuthPage: React.FC = () => {
     setIsLogin(!isLogin);
     setError('');
     setSuccessMessage('');
-    setLoginData({ username: '', password: '' });
+    setLoginData({ email: '', password: '' });
     setSignupData({
       name: '',
       email: '',
@@ -179,8 +204,8 @@ const AuthPage: React.FC = () => {
                 <input
                   id="username"
                   type="text"
-                  value={loginData.username}
-                  onChange={(e) => handleLoginInputChange('username', e.target.value)}
+                  value={loginData.email}
+                  onChange={(e) => handleLoginInputChange('email', e.target.value)}
                   disabled={loading}
                   placeholder="Enter your username"
                 />
