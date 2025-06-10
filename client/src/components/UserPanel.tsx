@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CrudService } from '../api/crudService.ts';
+import UserStorageService from '../api/userStorageService.ts';
 
 interface Todo {
   id: number;
@@ -32,7 +33,7 @@ const UserPanel: React.FC = () => {
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [statuses, setStatuses] = useState<Status[]>([]);
 
-  const userId = user?.id || 1; // Get user ID from auth context
+  const userId = UserStorageService.getUserId();
 
   const fetchUserTodos = useCallback(async () => {
     try {
@@ -42,13 +43,11 @@ const UserPanel: React.FC = () => {
       
       if (response.error) { 
         throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); 
-        return; 
       }
       if (response.data == null) return;
 
       if (response.data.status === 'failed') { 
         throw new Error("[DATA]: " + response.data.error); 
-        return; 
       }
 
       setTodos(response.data.data ?? []);
@@ -64,7 +63,6 @@ const UserPanel: React.FC = () => {
       const response = await CrudService.read<Status[]>(`/status/all`);
       if (response.error) { 
         throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); 
-        return; 
       }
       if (response.data == null) return;
 
@@ -72,7 +70,6 @@ const UserPanel: React.FC = () => {
 
       if (response.data.status === 'failed') { 
         throw new Error("[DATA]: " + response.data.error); 
-        return; 
       }
       
       setStatuses(response.data.data ?? []);
@@ -95,15 +92,14 @@ const UserPanel: React.FC = () => {
         created_by: userId,
         title: newTodo.title,
         description: newTodo.description,
-        status: 1, // Default to first status (usually "pending")
-        assigned_to: userId, // User assigns to themselves
+        status: 1, 
+        assigned_to: userId,
         due_date: new Date()
       };
 
       const response = await CrudService.create('/todo/create', todoData);
       if (response.error) { 
         throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); 
-        return; 
       }
       if (response.data == null) return;
 
@@ -111,10 +107,9 @@ const UserPanel: React.FC = () => {
 
       if (response.data.status === 'failed') { 
         throw new Error("[DATA]: " + response.data.error); 
-        return; 
       }
 
-      fetchUserTodos(); // Refresh the todos list
+      fetchUserTodos();
       setNewTodo({ title: '', description: '' });
       
     } catch (err) { 
@@ -143,7 +138,6 @@ const UserPanel: React.FC = () => {
 
       if (response.data.status === 'failed') { 
         throw new Error("[DATA]: " + response.data.error); 
-        return; 
       }
 
       setTodos(todos.map(todo =>
@@ -163,7 +157,6 @@ const UserPanel: React.FC = () => {
       const response = await CrudService.update('/todo', todoId, statusData);
       if (response.error) { 
         throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); 
-        return; 
       }
       if (response.data == null) return;
 
@@ -171,7 +164,6 @@ const UserPanel: React.FC = () => {
 
       if (response.data.status === 'failed') { 
         throw new Error("[DATA]: " + response.data.error); 
-        return; 
       }
 
       setTodos(todos.map(todo =>
