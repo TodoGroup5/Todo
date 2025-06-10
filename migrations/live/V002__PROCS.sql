@@ -1,4 +1,4 @@
----------- Summary ----------
+---------- Index ----------
 -- Users:
 --  - create_user
 --  - get_user_by_id
@@ -56,6 +56,31 @@
 --  - assign_local_role
 --  - get_member_local_roles
 --  - revoke_local_role
+
+
+---------- RBAC Summary ----------
+
+-- There are two types of user 'role' systems:
+-- - Global roles: {Access Administrator, User}
+--    - Access Administrator:
+--       - These users are allowed to manage other user's accounts, as well as their allocations to teams.
+--       - They can change both the global and local roles of other users, create and delete user accounts,
+--         update other users' account passwords and disable their 2FA (but should not be able to view the
+--         password/2FA hash directly if possible), create teams, and assign roles within those teams.
+--       - They can also create new statuses, as well as global and local roles.
+--       - In effect, they can do almost anything on the system.
+--    - User (Normal):
+--       - Can view everything (todos, teams, roles, statuses etc.) except other users' secret values (password, 2FA).
+--       - Can only update their own user details, unless they have local team roles as members of one or more teams (see local roles below).
+-- - Local roles: {Team Lead, TODO User}
+--    - Team Lead:
+--       - Have full control of the corresponding team for which they are a Team Lead, but cannot edit team members' accounts.
+--       - Cannot create new teams, but can delete the team they are a leader of. Can add/remove team members dynamically,
+--         and create/delete/update todo items for their team.
+--    - TODO User:
+--       - Can view & edit all TODO items for teams which they are a part of, and mark todo items as 'is_deleted' (but not DELETE the item permanently),
+--         as well as create & assign TODOs to other members of the team.
+
 
 
 
