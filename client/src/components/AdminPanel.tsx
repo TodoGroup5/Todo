@@ -81,14 +81,13 @@ const AdminPanel: React.FC = () => {
       const user = users.find(u => u.id === userId);
       if (!user) return;
 
-      if (user.role_ids.length > 0) {
-        for (const role_id of user.role_ids) {
-          const revokeResponse = await CrudService.delete(`/user/${userId}/global-role/${role_id}/revoke`, '');
+      if (user.roles.length > 0) {
+        for (const role of user.roles) {
+          const revokeResponse = await CrudService.delete(`/user/${userId}/global-role/${role.role_id}/revoke`, '');
           if (revokeResponse.error) { throw new Error("[REVOKE]: " + revokeResponse.error); }
         }
       }
 
-      
       const assignData = {};
       const assignResponse = await CrudService.create(`/user/${userId}/global-role/${newRoleId}/assign`, assignData);
       if (assignResponse.error) { throw new Error("[ASSIGN]: " + assignResponse.error + "\n" + assignResponse.message); return; }
@@ -98,24 +97,8 @@ const AdminPanel: React.FC = () => {
 
       if (assignResponse.data.status === 'failed') { throw new Error("[DATA]: " + assignResponse.data.error); return; }   
       
-      fetchUsers();
-      const selectedRole = globalRoles.find(role => role.id === parseInt(newRoleId));
-      setUsers(prevUsers =>
-        prevUsers.map(user =>
-          user.id === userId
-          ? {
-              ...user,
-              roles: [
-                {
-                  role_id: parseInt(newRoleId),
-                  role_name: selectedRole.name,
-                  user_id: userId
-                }
-              ]
-            }
-          : user
-        )
-      );
+      await fetchUsers();
+      
     } catch (err) {
       console.log("Failed to change user role", err);
     } finally {
@@ -188,12 +171,9 @@ const AdminPanel: React.FC = () => {
     return user.role_names.length > 0 ? user.role_names[0] : 'No Role';
   };
 
-  const getUserPrimaryRoleId = (user: User): number | undefined => {
-    return user.role_ids[0];
-  };
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString();
+  const getUserPrimaryRoleId = (userRoles: UserRole[]): string => {
+    if (userRoles.length === 0) return '';
+    return userRoles[0].role_id.toString();
   };
 
   if (loading) return <div className="dashboard-content">Loading users...</div>;
@@ -248,7 +228,7 @@ const AdminPanel: React.FC = () => {
               >
                 <option value="">Select Role (Optional)</option>
                 {globalRoles.map(role => (
-                  <option key={role.id} value={role.id}>{role.name}</option>
+                  <option key={role.id} value={role.id.toString()}>{role.name}</option>
                 ))}
               </select>
             </div>
@@ -279,14 +259,14 @@ const AdminPanel: React.FC = () => {
                 <span>{formatDate(user.created_at)}</span>
                 <div className="table-actions">
                   <select
-                    value={getUserPrimaryRoleId(user) || ''}
+                    value={getUserPrimaryRoleId(user.roles)}
                     onChange={(e) => handleRoleChange(user.id, e.target.value)}
                     className="role-select"
                     disabled={updateLoading}
                   >
                     <option value="">No Role</option>
                     {globalRoles.map(role => (
-                      <option key={role.id} value={role.id}>{role.name}</option>
+                      <option key={role.id} value={role.id.toString()}>{role.name}</option>
                     ))}
                   </select>
                   <button
@@ -307,7 +287,6 @@ const AdminPanel: React.FC = () => {
           <div className="users-table">
             <div className="table-header">
               <span>Role Name</span>
-              {/* <span>Role ID</span> */}
               <span>Users Count</span>
             </div>
             {globalRoles.map(role => {
@@ -318,7 +297,6 @@ const AdminPanel: React.FC = () => {
               return (
                 <div key={role.id} className="table-row">
                   <span className="role-badge">{role.name}</span>
-                  {/* <span>{role.id}</span> */}
                   <span>{usersWithRole} users</span>
                 </div>
               );
