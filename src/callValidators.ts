@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { CallName, ParamValidator } from "./db.js";
 
 export const z_str = z.string().max(2048);
+export const z_str_nonempty = z_str.nonempty();
 export const z_date = z.coerce.date();
 export const z_timestamp = z.coerce.date().or(z.string());
 export const z_id = z.number().int().nonnegative();
@@ -38,13 +39,13 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
 
     get_all_global_roles:       [],
     get_global_role_by_id:      [["role_id", z_id]],
-    get_global_role_by_name:    [["name", z_str]],
+    get_global_role_by_name:    [["name", z_str_nonempty]],
     get_all_local_roles:        [],
     get_local_role_by_id:       [["role_id",  z_id]],
-    get_local_role_by_name:     [["name", z_str]],
+    get_local_role_by_name:     [["name", z_str_nonempty]],
     get_all_statuses:           [],
     get_status_by_id:           [["status_id", z_id]],
-    get_status_by_name:         [["name", z_str]],
+    get_status_by_name:         [["name", z_str_nonempty]],
 
 
 
@@ -53,25 +54,27 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
     assign_global_role:         [["user_id", z_id], ["role_id", z_id]],
     assign_local_role:          [["member_id", z_id], ["role_id", z_id]],
 
-    create_global_role:         [["name", z_str]],
-    create_local_role:          [["name", z_str]],
-    create_status:              [["name", z_str]],
-    create_team:                [["name", z_str], ["description", z_str]],
+    create_global_role:         [["name", z_str_nonempty]],
+    create_local_role:          [["name", z_str_nonempty]],
+    create_status:              [["name", z_str_nonempty]],
+    create_team:                [["name", z_str_nonempty], ["description", z_str]],
     create_todo: [
         ["created_by", z_id],
         ["team_id", z_id],
-        ["title", z_str],
+        ["title", z_str_nonempty],
         ["description", z_str],
         ["status", z_id],
         ["assigned_to", z_id_opt],
         ["due_date", z_date_opt]
     ],
     create_user: [
-        ["name", z_str],
+        ["name", z_str_nonempty],
         ["email", z_email],
-        ["password_hash", z_str],
+        ["password_hash", z_str_nonempty],
         ["two_fa_secret", z_str_opt]
     ],
+
+    get_user_secrets:           [["user_id", z_id]],
 
     delete_global_role:         [["role_id", z_id]],
     delete_local_role:          [["role_id", z_id]],
@@ -84,9 +87,9 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
 
     revoke_global_role:         [["user_id", z_id], ["role_id", z_id]],
 
-    update_global_role:         [["role_id", z_id], ["name", z_str]],
-    update_local_role:          [["role_id", z_id], ["name", z_str]],
-    update_status:              [["status_id", z_id], ["name", z_str]],
+    update_global_role:         [["role_id", z_id], ["name", z_str_nonempty]],
+    update_local_role:          [["role_id", z_id], ["name", z_str_nonempty]],
+    update_status:              [["status_id", z_id], ["name", z_str_nonempty]],
 
     revoke_local_role:          [["member_id", z_id], ["role_id", z_id]],
 
