@@ -237,7 +237,7 @@ const Settings: React.FC = () => {
   };
 
   const getPrimaryRole = (): string => {
-    if (userInfo == null || userInfo.role_names.length === 0) return 'User';
+    if ((userInfo?.role_names?.length ?? 0) === 0) return 'User';
     return userInfo.role_names[0];
   };
 

@@ -15,6 +15,16 @@ export const z_timestamp_opt = z_timestamp.optional();
 export const z_id_opt = z_id.optional();
 export const z_email_opt = z_email.optional();
 
+export function validatePassword(plaintext: string): boolean {
+    return (
+        plaintext.length < 512 &&
+        plaintext.length > 8 &&
+        /[a-z]/.test(plaintext) &&      // lowercase
+        /[A-Z]/.test(plaintext) &&      // uppercase
+        /[0-9]/.test(plaintext) &&      // digit
+        /[^a-zA-Z0-9]/.test(plaintext)  // non-alphanumeric symbol
+    );
+}
 
 
 export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {

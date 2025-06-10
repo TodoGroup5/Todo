@@ -2,9 +2,10 @@ import { Pool } from 'pg';
 import { type Request, type Response, Router } from 'express';
 import { CallData, callDB, CallName, CallType, InvalidList, ParamValidator, parseParams, ParseParamsResult, TableResult, type JSONResult } from './db.js';
 import { Repetitions } from './types.js';
-import { z_email, z_id, z_str, z_str_nonempty, z_str_opt } from './callValidators.js';
-import { AuthenticatedRequest, authenticateToken, comparePassHash, genJWT, hashPassword } from './auth.js';
+import { validatePassword, z_email, z_id, z_str, z_str_nonempty, z_str_opt } from './callValidators.js';
+import { AuthenticatedRequest, authenticateToken, comparePassHash, genJWT, hashPassword, JwtData, verifyJWT } from './auth.js';
 import { isProductionEnvironment } from './lib/deployment.js';
+import { JwtPayload, verify } from 'jsonwebtoken';
 
 //==================== Setup DB connection ====================//
 const router = Router();
@@ -13,7 +14,7 @@ const dbConfig: any = {
     host: process.env.DB_HOST || 'localhost',
     port: Number(process.env.DB_PORT || '5432'),
     user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASS || 'password',
+    password: process.env.DB_PASS || 'postgres',
 }
 
 if (isProductionEnvironment()) {
@@ -34,25 +35,70 @@ function sendResponse<S, F>(
     res.status(success ? 200 : failCode).json(success ? { status: 'success', data: formatter(result.data) } : result);
 }
 
+const _1hr = 60*60*1000;
+
+// Write JWT to HttpOnly cookie
+function setJWT(res: Response, user_id: number, email: string, maxAge: number = 24 * _1hr) {
+    const token = genJWT(user_id, email);
+
+    res.cookie('jwt', token, {
+        httpOnly: true,
+        secure: isProductionEnvironment(),  // requires HTTPS
+        sameSite: 'strict',
+        maxAge
+    });
+}
+
+// Get JWT from cookie
+function getJWT(req: Request): string | null {
+    if (!req.cookies || !req.cookies.jwt) {
+        return null;
+    }
+    return req.cookies.jwt;
+}
+
+function checkJWTAuth(req: Request): JwtData | null {
+    const token = getJWT(req);
+    if (!token) return null;
+    return verifyJWT(token);
+}
+
 type ParamsDict<T = unknown> = { [key: string]: T };
 type ParamFormatter<I = unknown, O = unknown> = (x: ParamsDict) => ParamsDict;
 
+// Construct a request handler for easyEndpoints
 function consReqHandler(type: CallType, call: CallName, urlParamFormatter: ParamFormatter = (x) => x) {
     return async (req: Request, res: Response) => {
-        console.log(`\n----- CALLING ${call} -----`)
-        console.log('BODY:', req.body);
-        console.log('PARAMS:', urlParamFormatter(req.params ?? {}));
-        sendResponse(
-            res,
-            await callDB(dbPool, {
-                type,
-                call,
-                params: {
-                    ...(req.body ?? {}),
-                    ...urlParamFormatter(req.params ?? {}),
-                },
-            })
-        );
+        try {
+            //----- Debug logs -----//
+            console.log(`\n----- CALLING ${call} -----`)
+            console.log('BODY:', req.body);
+            console.log('PARAMS:', urlParamFormatter(req.params ?? {}));
+
+            //----- Check JWT -----//
+            const token = checkJWTAuth(req);
+            if (token == null) {
+                sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
+                return;
+            }
+            const { user_id, email } = token;
+
+            //----- Return -----//
+            sendResponse(
+                res,
+                await callDB(dbPool, user_id, {
+                    type,
+                    call,
+                    params: {
+                        ...(req.body ?? {}),
+                        ...urlParamFormatter(req.params ?? {}),
+                    },
+                })
+            );
+        } catch (err) { // Catch-all
+            console.error(err);
+            sendResponse(res, { status: 'failed', error: 'internalServerError' }, 500);
+        }
     };
 }
 
@@ -89,18 +135,24 @@ function callSuccessWithData<S>(res: JSONResult<unknown[], unknown>): res is { s
 
 router.post('/signup', async (req: Request, res: Response) => {
     //----- Validate request params -----//
-    const expected: ParamValidator[] = [ ["name", z_str_nonempty], ["email", z_email], ["password_hash", z_str_nonempty] ];
-    const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
+    const expected: ParamValidator[] = [ ["name", z_str_nonempty], ["email", z_email], ["password", z_str_nonempty] ];
+    const parseRes: ParseParamsResult = parseParams({ params: req.body ?? {} }, expected);
     if (parseRes.status === 'failed') {
         sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
         return;
     }
+    const [name, email, password] = parseRes.params as string[];
+
+    //----- Check password complexity -----//
+    if (!validatePassword(password)) {
+        sendResponse(res, { status: 'failed', error: 'passwordInsecure' }, 400);
+        return;
+    }
 
     //----- Create user -----//
-    const [name, email, rawPassword, two_fa_secret] = parseRes.params as string[];
-    const password_hash = await hashPassword(rawPassword);
+    const password_hash = hashPassword(password);
 
-    const createRes = await callDB(dbPool, { type: 'func', call: 'create_user', params: { name, email, password_hash } });
+    const createRes = await callDB(dbPool, -1, { type: 'func', call: 'create_user', params: { name, email, password_hash } });
     if(!callSuccessWithData<Post_UserCreate>(createRes)) {
         sendResponse(res, { status: 'failed', error: 'userCreateFailed', data: createRes }, 400);
         return;
@@ -109,7 +161,8 @@ router.post('/signup', async (req: Request, res: Response) => {
     const { user_id } = createRes.data[0];
 
     //----- Return -----//
-    res.json({ token: genJWT(user_id, email) });
+    setJWT(res, user_id, email);
+    sendResponse(res, { status: 'success', data: { user_id, email } });
 });
 
 router.post('/login', async (req: Request, res: Response) => {
@@ -123,7 +176,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
     //----- Get user secrets -----//
     const [email, password] = parseRes.params as string[];
-    const userRes = await callDB(dbPool, { type: 'func', call: 'get_user_by_email', params: { email } });
+    const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_by_email', params: { email } });
     if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
         sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
         return;
@@ -138,10 +191,19 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     //----- Return -----//
-    res.json({ token: genJWT(user_id, email) });
+    setJWT(res, user_id, email);
+    sendResponse(res, { status: 'success', data: { user_id, email } });
 });
 
 router.post('/change-password', async (req: Request, res: Response) => {
+    //----- Check JWT -----//
+    const token = checkJWTAuth(req);
+    if (token == null) {
+        sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
+        return;
+    }
+    const { user_id: tok_user_id, email: tok_email } = token;
+
     //----- Validate request params -----//
     const expected: ParamValidator[] = [ ['user_id', z_id], ['new_password', z_str_nonempty], ['old_password', z_str_nonempty] ];
     const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
@@ -149,10 +211,16 @@ router.post('/change-password', async (req: Request, res: Response) => {
         sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
         return;
     };
+    const [ user_id, new_password, old_password ] = parseRes.params as string[];
+
+    //----- Check password complexity -----//
+    if (!validatePassword(new_password)) {
+        sendResponse(res, { status: 'failed', error: 'passwordInsecure' }, 400);
+        return;
+    }
 
     //----- Get user secrets -----//
-    const [ user_id, new_password, old_password ] = parseRes.params as string[];
-    const userRes = await callDB(dbPool, { type: 'func', call: 'get_user_secrets', params: { user_id } });
+    const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets', params: { user_id } });
     if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
         sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
         return;
@@ -166,10 +234,10 @@ router.post('/change-password', async (req: Request, res: Response) => {
     }
 
     //----- Hash new password ----//
-    const new_hash = await hashPassword(new_password);
+    const new_hash = hashPassword(new_password);
 
     //----- Update user -----//
-    const updateRes = await callDB(dbPool, { type: 'proc', call: 'update_user', params: { user_id, password_hash: new_hash } });
+    const updateRes = await callDB(dbPool, -1, { type: 'proc', call: 'update_user', params: { user_id, password_hash: new_hash } });
     if (updateRes.status === "failed") {
         sendResponse(res, { status: 'failed', error: 'userUpdateFailed' }, 404);
         return;

@@ -6,6 +6,7 @@ import path from 'path';
 import { attachCsrfToken, verifyCsrfToken } from "./lib/csrf";
 import { isProductionEnvironment } from "./lib/deployment.js";
 import { fileURLToPath } from 'url';
+import cookieParser from "cookie-parser";
 
 let dirname;
 
@@ -23,6 +24,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 app.use(cors());
 // app.use(attachCsrfToken());
 // app.use(verifyCsrfToken());
+app.use(cookieParser());
 app.use(express.json());
 app.use("/api", router);
 

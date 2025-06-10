@@ -99,6 +99,7 @@ export function parseParams(
 // Safely execute an arbitrary PostgreSQL func/proc with sanitization & injection
 export async function callDBRaw<T extends QueryResultRow>(
   pool: Pool | Client,              // Postgres connection pool
+  user_id: number,                  // User ID for row-level security
   callName: string,
   params: RawParams = [],
   callType: CallType = "func",
@@ -108,6 +109,7 @@ export async function callDBRaw<T extends QueryResultRow>(
   try {
     const mappedParams = params.map((_, i) => `$${i+1}`).join(', ');
 
+    // TODO: RLS w/ user_id
     const query = (callType === "proc")
     ? `CALL ${callName}(${mappedParams});` // E.g. CALL create_user($1, $2, $3);
     : `
@@ -128,6 +130,7 @@ export async function callDBRaw<T extends QueryResultRow>(
 // On failure, returns [paramName, error][] InvalidList
 export async function callDB (
   pool: Pool | Client,
+  user_id: number,
   call: CallData,
   expected: ParamValidator[] = VALIDATOR_SETS[call.call]
 ): Promise<JSONResult<TableResult, InvalidList>> {
@@ -141,7 +144,7 @@ export async function callDB (
 
   // Attempt DB call
   try {
-    const res = await callDBRaw(pool, call.call, rawParams.params, call.type, (call as any).page ?? undefined, (call as any).itemsPerPage ?? undefined);
+    const res = await callDBRaw(pool, user_id, call.call, rawParams.params, call.type, (call as any).page ?? undefined, (call as any).itemsPerPage ?? undefined);
     return { status: 'success', data: res?.rows ?? [] };
   }
   catch (error: any) {
