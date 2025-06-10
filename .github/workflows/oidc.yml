@@ -177,4 +177,4 @@ jobs:
                        
       - name: Run Flyway Migrations
         run: |
-          docker run --rm --volume ${{ github.workspace }}/migrations:/flyway/sql:ro redgate/flyway -url="jdbc:postgresql://$POSTGRES_HOST/tododb" -user="$POSTGRES_USER" -password="$POSTGRES_PASS" migrate
+          docker run --rm --volume ${{ github.workspace }}/migrations/live:/flyway/sql:ro redgate/flyway -url="jdbc:postgresql://$POSTGRES_HOST/tododb" -user="$POSTGRES_USER" -password="$POSTGRES_PASS" migrate
