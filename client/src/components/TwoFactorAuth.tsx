@@ -13,7 +13,6 @@ const TwoFactorAuth: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { otpauthUrl } = location.state || {};
-  console.log(otpauthUrl);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

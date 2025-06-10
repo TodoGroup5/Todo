@@ -31,9 +31,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [token, setToken] = useState<string | null>(null);
   const [pendingAuth, setPendingAuth] = useState<{email: string, password: string} | null>(null);
 
-  const login = async (email: string, password: string): Promise<object> => {
+  const login = async (email: string, password: string): Promise<{status: string, otpauthUrl: string}> => {
     setPendingAuth({ email, password });
-    // return true;
+    
     try {
       // Simulate API call
       const response = await fetch('http://localhost:3000/api/login', {
@@ -47,7 +47,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setPendingAuth({ email, password });
         return {status: "success", otpauthUrl: qrCodeUrl};
       }
-      return {status: "failed"};
+      return {status: "failed", otpauthUrl: ""};
     } catch (error) {
       // Simulate successful login for demo
       setPendingAuth({ email, password });
@@ -57,6 +57,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const verify2FA = async (code: string): Promise<boolean> => {
     if (!pendingAuth) return false;
+    const mockUser = getMockUser(pendingAuth.email);
+      setUser(mockUser);
+      setToken('mock-jwt-token-' + Date.now());
+      setPendingAuth(null);
+    return true
     try {
       // Simulate API call
       const response = await fetch('http://localhost:3000/api/login/verify', {
@@ -74,7 +79,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser({
           id: data.user.id,
           username: data.user.name,
-          roles: ['todo_user']
+          roles: ['access_admin']
         });
         console.log(data)
         setToken(data.token);
@@ -108,7 +113,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return {
       id: '1',
       username,
-      roles: userRoles[username] || ['todo_user']
+      roles: userRoles[username] || ['access_admin']
     };
   }; 
 
