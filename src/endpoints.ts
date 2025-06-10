@@ -182,6 +182,8 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const { id: user_id, password_hash } = userRes.data[0];
 
+    console.log(password, password_hash);
+
     //----- Check hashes match -----//
     if (!comparePassHash(password, password_hash)) {
         sendResponse(res, { status: 'failed', error: 'incorrectPassword' }, 401);
