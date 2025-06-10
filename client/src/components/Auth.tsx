@@ -25,7 +25,7 @@ const App: React.FC = () => {
   const fetchProfile = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3001/profile', {
+      const response = await axios.get('https://ec2-16-28-30-48.af-south-1.compute.amazonaws.com/profile', {
         headers: {
           Authorization: `Bearer ${token}`
         }

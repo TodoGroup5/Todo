@@ -10,7 +10,7 @@ const App: React.FC = () => {
 
   const login = async () => {
     try {
-      const res = await fetch('http://localhost:3001/login', {
+      const res = await fetch('https://ec2-16-28-30-48.af-south-1.compute.amazonaws.com/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
