@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CrudService } from '../api/crudService.ts';
 import AnalyticsBarChart from './AnalyticsBarChart';
+import UserStorageService from '../api/userStorageService.ts';
 
 interface Todo {
   id: number;
@@ -53,7 +54,7 @@ const TeamLeadPanel: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   
-  const userId = 1;
+  const userId = UserStorageService.getUserId();
 
   const isTeamLead = () => {
     if (!selectedTeam) return false;
