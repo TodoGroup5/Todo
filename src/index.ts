@@ -13,8 +13,7 @@ if (!isProductionEnvironment()) {
 	const __filename = fileURLToPath(import.meta.url);
 	dirname = path.dirname(__filename);
 } else {
-	const __filename = fileURLToPath(import.meta.url);
-	dirname = path.dirname(__filename);
+	dirname = __dirname
 }
 
 //---------- Setup ----------//
