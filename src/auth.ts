@@ -25,8 +25,8 @@ export async function hashPassword(plaintext: string): Promise<string> {
 
 // Compare password with it's hash
 // Return true if matching
-export function comparePassHash(plaintext: string, hash: string) {
-  return bcrypt.compareSync(`${plaintext}${pepper}`, hash)
+export async function comparePassHash(plaintext: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(`${plaintext}${pepper}`, hash);
 }
 
 export function genJWT(userId: number, email: string, expiresIn: `${number}${"s"|"m"|"h"}` = "1h") {

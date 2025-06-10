@@ -5,6 +5,8 @@ import { Repetitions } from './types.js';
 import { z_email, z_id, z_str, z_str_nonempty, z_str_opt } from './callValidators.js';
 import { AuthenticatedRequest, authenticateToken, comparePassHash, genJWT, hashPassword } from './auth.js';
 import { isProductionEnvironment } from './lib/deployment.js';
+import speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
 
 //==================== Setup DB connection ====================//
 const router = Router();
@@ -89,27 +91,33 @@ function callSuccessWithData<S>(res: JSONResult<unknown[], unknown>): res is { s
 
 router.post('/signup', async (req: Request, res: Response) => {
     //----- Validate request params -----//
-    const expected: ParamValidator[] = [ ["name", z_str_nonempty], ["email", z_email], ["password_hash", z_str_nonempty] ];
+    const expected: ParamValidator[] = [ ["name", z_str_nonempty], ["email", z_email], ["password", z_str_nonempty] ];
     const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
     if (parseRes.status === 'failed') {
         sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
         return;
     }
-
+    
     //----- Create user -----//
-    const [name, email, rawPassword, two_fa_secret] = parseRes.params as string[];
+    const [name, email, rawPassword] = parseRes.params as string[];
     const password_hash = await hashPassword(rawPassword);
-
-    const createRes = await callDB(dbPool, { type: 'func', call: 'create_user', params: { name, email, password_hash } });
+    // Generate 2FA secret immediately upon user signup
+    const secret = speakeasy.generateSecret({
+        name: `TodoApp-Group-5`,
+        issuer: 'TodoApp',
+        length: 20
+    });
+    const two_fa_secret = secret.base32;
+    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!);
+    
+    const createRes = await callDB(dbPool, { type: 'func', call: 'create_user', params: { name, email, password_hash, two_fa_secret} });
     if(!callSuccessWithData<Post_UserCreate>(createRes)) {
         sendResponse(res, { status: 'failed', error: 'userCreateFailed', data: createRes }, 400);
         return;
     }
 
-    const { user_id } = createRes.data[0];
-
     //----- Return -----//
-    res.json({ token: genJWT(user_id, email) });
+    res.json({ qrCode: qrCodeUrl });
 });
 
 router.post('/login', async (req: Request, res: Response) => {
@@ -129,16 +137,48 @@ router.post('/login', async (req: Request, res: Response) => {
         return;
     }
 
-    const { id: user_id, password_hash } = userRes.data[0];
-
+    const { id: user_id, password_hash, two_fa_secret } = userRes.data[0];
+    // Generate QR code using the user's existing 2FA secret
+    const otpauthUrl = speakeasy.otpauthURL({
+        secret: two_fa_secret,
+        label: `TodoApp-Group-5`,
+        issuer: 'TodoApp',
+        encoding: 'base32'
+    });
+    
+    const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
     //----- Check hashes match -----//
-    if (!comparePassHash(password, password_hash)) {
+    const isValid = await comparePassHash(password, password_hash);
+    if (!isValid) {
         sendResponse(res, { status: 'failed', error: 'incorrectPassword' }, 401);
         return;
     }
-
     //----- Return -----//
-    res.json({ token: genJWT(user_id, email) });
+    res.json({ qrCodeUrl });
+});
+
+router.post('/login/verify', async (req: Request, res: Response) => {
+    const { email, twoFactorToken } = req.body;
+    const userRes = await callDB(dbPool, { type: 'func', call: 'get_user_by_email', params: { email } });
+    if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
+        sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
+        return;
+    }
+    const { id: user_id, two_fa_secret } = userRes.data[0];
+    // Verify the 2FA token
+    const verified = speakeasy.totp.verify({
+        secret: two_fa_secret,
+        encoding: 'base32',
+        token: twoFactorToken,
+        window: 2
+    });
+
+    if (!verified) {
+        return res.status(401).json({ error: 'Invalid 2FA token' });
+    }
+     //----- Return -----//
+    res.json({ user: userRes.data[0], token: genJWT(user_id, email) });
+    
 });
 
 router.post('/change-password', async (req: Request, res: Response) => {

@@ -11,7 +11,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<object>;
   verify2FA: (code: string) => Promise<boolean>;
   logout: () => void;
 }
@@ -29,56 +29,54 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [pendingAuth, setPendingAuth] = useState<{username: string, password: string} | null>(null);
+  const [pendingAuth, setPendingAuth] = useState<{email: string, password: string} | null>(null);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
-    setPendingAuth({ username, password });
-    return true;
-    
+  const login = async (email: string, password: string): Promise<object> => {
+    setPendingAuth({ email, password });
+    // return true;
     try {
       // Simulate API call
-      const response = await fetch('/api/login', {
+      const response = await fetch('http://localhost:3000/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ email, password })
       });
 
       if (response.ok) {
-        setPendingAuth({ username, password });
-        return true;
+        const { qrCodeUrl } = await response.json();
+        setPendingAuth({ email, password });
+        return {status: "success", otpauthUrl: qrCodeUrl};
       }
-      return false;
+      return {status: "failed"};
     } catch (error) {
       // Simulate successful login for demo
-      setPendingAuth({ username, password });
-      return true;
+      setPendingAuth({ email, password });
+      return {status: "success", otpauthUrl: ""};
     }
   };
 
   const verify2FA = async (code: string): Promise<boolean> => {
     if (!pendingAuth) return false;
-
-        const mockUser = getMockUser(pendingAuth.username);
-      setUser(mockUser);
-      setToken('mock-jwt-token-' + Date.now());
-      setPendingAuth(null);
-      return true;
-
     try {
       // Simulate API call
-      const response = await fetch('/api/verify-2fa', {
+      const response = await fetch('http://localhost:3000/api/login/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          username: pendingAuth.username, 
-          password: pendingAuth.password, 
-          code 
+          email: pendingAuth.email, 
+          twoFactorToken: code 
         })
       });
 
       if (response.ok) {
+        console.log('success verified 2fa')
         const data = await response.json();
-        setUser(data.user);
+        setUser({
+          id: data.user.id,
+          username: data.user.name,
+          roles: ['todo_user']
+        });
+        console.log(data)
         setToken(data.token);
         setPendingAuth(null);
         return true;
@@ -86,7 +84,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return false;
     } catch (error) {
       // Simulate successful 2FA for demo
-      const mockUser = getMockUser(pendingAuth.username);
+      const mockUser = getMockUser(pendingAuth.email);
       setUser(mockUser);
       setToken('mock-jwt-token-' + Date.now());
       setPendingAuth(null);

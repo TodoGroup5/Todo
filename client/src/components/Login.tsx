@@ -13,6 +13,10 @@ interface SignupData {
 
 const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [OTPData, setOTPData] = useState({
+    otpauthUrl:"",
+    email:""
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -20,7 +24,7 @@ const AuthPage: React.FC = () => {
   const navigate = useNavigate();
   
   const [loginData, setLoginData] = useState({
-    username: '',
+    email: '',
     password: ''
   });
   
@@ -36,16 +40,17 @@ const AuthPage: React.FC = () => {
     setLoading(true);
     setError('');
 
-    if (!loginData.username || !loginData.password) {
+    if (!loginData.email || !loginData.password) {
       setError('Please fill in all fields');
       setLoading(false);
       return;
     }
 
     try {
-      const success = await login(loginData.username, loginData.password);
-      if (success) {
-        navigate('/2fa');
+      const {status, otpauthUrl} = await login(loginData.email, loginData.password);
+      
+      if (status ==='success') {
+        navigate('/2fa', {state: {otpauthUrl}});
       } else {
         setError('Invalid username or password');
       }
@@ -93,7 +98,7 @@ const AuthPage: React.FC = () => {
 
     try {
       const userData = {
-        username: signupData.username,
+        name: signupData.username,
         email: signupData.email,
         password: signupData.password,
       };
@@ -125,6 +130,10 @@ const AuthPage: React.FC = () => {
       
       setTimeout(() => {
         setIsLogin(true);
+        setOTPData({
+          otpauthUrl: response.data.qrCode,
+          email: signupData.email
+        });
         setSuccessMessage('');
       }, 2000);
 
@@ -140,7 +149,7 @@ const AuthPage: React.FC = () => {
     setIsLogin(!isLogin);
     setError('');
     setSuccessMessage('');
-    setLoginData({ username: '', password: '' });
+    setLoginData({ email: '', password: '' });
     setSignupData({
       username: '',
       email: '',
@@ -172,17 +181,17 @@ const AuthPage: React.FC = () => {
 
           {error && <div className="error-message">{error}</div>}
 
-          {isLogin ? (
+          {isLogin ? (       
             <div className="auth-form">
               <div className="form-group">
-                <label htmlFor="username">Username</label>
+                <label htmlFor="username">Email</label>
                 <input
                   id="username"
                   type="text"
-                  value={loginData.username}
-                  onChange={(e) => handleLoginInputChange('username', e.target.value)}
+                  value={loginData.email}
+                  onChange={(e) => handleLoginInputChange('email', e.target.value)}
                   disabled={loading}
-                  placeholder="Enter your username"
+                  placeholder="Enter your email address"
                 />
               </div>
               

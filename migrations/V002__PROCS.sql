@@ -142,6 +142,8 @@ RETURNS TABLE (
     id INTEGER,
     name VARCHAR,
     email VARCHAR,
+    password_hash VARCHAR,
+    two_fa_secret VARCHAR,
     role_ids INTEGER[],
     role_names VARCHAR[]
 ) AS $$
@@ -151,6 +153,8 @@ BEGIN
         u.id,
         u.name,
         u.email,
+        u.password_hash,
+        u.two_fa_secret,
         ARRAY_AGG(ugr.role_id ORDER BY ugr.role_id DESC) AS role_ids,
         ARRAY_AGG(gr.name ORDER BY ugr.role_id DESC) AS role_names
     FROM users u
