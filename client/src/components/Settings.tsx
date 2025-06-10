@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CrudService } from '../api/crudService.ts';
+import UserStorageService from '../api/userStorageService.ts';
 
 type UserInfo = {
   "id": number,
@@ -28,8 +29,7 @@ const Settings: React.FC = () => {
     confirmPassword: ''
   });
 
-  // You'll need to get this from your auth context/token
-  const currentUserId = 1; // Replace with actual user ID from auth
+  const currentUserId = UserStorageService.getUserId();
 
   useEffect(() => {
     fetchUserInfo();
@@ -92,7 +92,7 @@ const Settings: React.FC = () => {
         email: formData.email
       };
 
-      const response = await CrudService.update('/user', currentUserId, updateData);
+      const response = await CrudService.update('/user/', currentUserId, updateData);
       if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
       if (response.data == null) return;
 
@@ -100,7 +100,6 @@ const Settings: React.FC = () => {
 
       if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
 
-      // Refresh user settings
       fetchUserInfo();
       setSuccessMessage('Profile updated successfully!');
     } catch (err) {
