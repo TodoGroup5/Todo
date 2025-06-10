@@ -51,9 +51,7 @@ function setJWT(res: Response, user_id: number, email: string, maxAge: number = 
 
 // Get JWT from cookie
 function getJWT(req: Request): string | null {
-    if (!req.cookies || !req.cookies.jwt) {
-        return null;
-    }
+    if (req.cookies == null || req.cookies.jwt == null) return null;
     return req.cookies.jwt;
 }
 

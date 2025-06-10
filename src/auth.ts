@@ -25,8 +25,8 @@ export function comparePassHash(plaintext: string, hash: string) {
   return bcrypt.compareSync(`${plaintext}${pepper}`, hash);
 }
 
-export function genJWT(userId: number, email: string, expiresIn: `${number}${"s"|"m"|"h"}` = "1h") {
-  return jwt.sign({ userId, email }, jwtSecret, { expiresIn });
+export function genJWT(user_id: number, email: string, expiresIn: `${number}${"s"|"m"|"h"}` = "1h") {
+  return jwt.sign({ user_id, email }, jwtSecret, { expiresIn });
 }
 
 export type JwtData = JwtPayload & { user_id: number; email: string };
@@ -37,7 +37,9 @@ function isJwtData(x: any): x is JwtData {
 
 export function verifyJWT(token: string): JwtData | null {
   try {
+    console.log("JWT:", token);
     const decoded = jwt.verify(token, jwtSecret);
+    console.log("DECODED:", decoded);
 
     if (!isJwtData(decoded)) return null;
     return decoded;
