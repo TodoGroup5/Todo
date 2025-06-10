@@ -13,10 +13,6 @@ interface SignupData {
 
 const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
-  const [OTPData, setOTPData] = useState({
-    otpauthUrl:"",
-    email:""
-  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -130,10 +126,6 @@ const AuthPage: React.FC = () => {
       
       setTimeout(() => {
         setIsLogin(true);
-        setOTPData({
-          otpauthUrl: response.data.qrCode,
-          email: signupData.email
-        });
         setSuccessMessage('');
       }, 2000);
 
