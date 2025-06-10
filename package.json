@@ -35,6 +35,8 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@types/lodash": "^4.17.0",
     "@types/pg": "^8.15.4",
+    "@types/qrcode": "^1.5.5",
+    "@types/speakeasy": "^2.0.10",
     "ts-loader": "^9.5.1",
     "tsx": "^4.19.4",
     "webpack": "^5.91.0",
