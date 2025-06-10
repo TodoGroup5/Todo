@@ -85,6 +85,7 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
     ],
 
     get_user_secrets:           [["user_id", z_id]],
+    get_user_secrets_by_email:  [["email", z_email]],
 
     delete_global_role:         [["role_id", z_id]],
     delete_local_role:          [["role_id", z_id]],

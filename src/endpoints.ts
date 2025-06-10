@@ -174,7 +174,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
     //----- Get user secrets -----//
     const [email, password] = parseRes.params as string[];
-    const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_by_email', params: { email } });
+    const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets_by_email', params: { email } });
     if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
         sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
         return;
@@ -200,7 +200,7 @@ router.post('/change-password', async (req: Request, res: Response) => {
         sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
         return;
     }
-    const { user_id: tok_user_id, email: tok_email } = token;
+    const { user_id: jwt_user_id } = token;
 
     //----- Validate request params -----//
     const expected: ParamValidator[] = [ ['user_id', z_id], ['new_password', z_str_nonempty], ['old_password', z_str_nonempty] ];
@@ -218,7 +218,7 @@ router.post('/change-password', async (req: Request, res: Response) => {
     }
 
     //----- Get user secrets -----//
-    const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets', params: { user_id } });
+    const userRes = await callDB(dbPool, jwt_user_id, { type: 'func', call: 'get_user_secrets', params: { user_id } });
     if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
         sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
         return;
@@ -235,7 +235,7 @@ router.post('/change-password', async (req: Request, res: Response) => {
     const new_hash = hashPassword(new_password);
 
     //----- Update user -----//
-    const updateRes = await callDB(dbPool, -1, { type: 'proc', call: 'update_user', params: { user_id, password_hash: new_hash } });
+    const updateRes = await callDB(dbPool, jwt_user_id, { type: 'proc', call: 'update_user', params: { user_id, password_hash: new_hash } });
     if (updateRes.status === "failed") {
         sendResponse(res, { status: 'failed', error: 'userUpdateFailed' }, 404);
         return;

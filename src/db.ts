@@ -1,6 +1,7 @@
 import type { Pool, Client, QueryResult, QueryResultRow, FieldDef } from 'pg';
 import type { ZodType } from 'zod';
 import { VALIDATOR_SETS } from './callValidators.js';
+import { isProductionEnvironment } from './lib/deployment.js';
 
 
 //---------- Types ----------//
@@ -21,7 +22,7 @@ export type CallName =
   "get_all_global_roles" | "get_global_role_by_id" | "get_global_role_by_name" | "get_all_local_roles" | "get_local_role_by_id" |
   "get_local_role_by_name" | "get_member_local_roles" | "get_all_statuses" | "get_status_by_id" | "get_status_by_name" |
   "get_team_by_id" | "get_team_members" | "get_team_membership" | "get_team_todos" | "get_todo_by_id" | "get_all_users" | "get_all_teams" |
-  "get_user_by_email" | "get_user_by_id" | "get_user_global_roles" | "get_user_todos" | "get_member_todos" | "get_user_teams" | "get_user_secrets" |
+  "get_user_by_email" | "get_user_by_id" | "get_user_global_roles" | "get_user_todos" | "get_member_todos" | "get_user_teams" | "get_user_secrets" | "get_user_secrets_by_email" |
   "remove_team_member" | "revoke_global_role" | "revoke_local_role" |
   "update_global_role" | "update_local_role" | "update_status" | "update_team" | "update_todo" | "update_user";
 
@@ -106,24 +107,45 @@ export async function callDBRaw<T extends QueryResultRow>(
   page: number = 0,                 // ignored for procs
   itemsPerPage: number = 100        // ignored for procs
 ): Promise<RawResult<T> | null> {
+  const client = await pool.connect();
+  if (client == null) return null;
+
   try {
-    const mappedParams = params.map((_, i) => `$${i+1}`).join(', ');
+    const mappedParams = params.map((_, i) => `$${i + 1}`).join(', ');
 
-    // TODO: RLS w/ user_id
+    // Compose main call query
     const query = (callType === "proc")
-    ? `CALL ${callName}(${mappedParams});` // E.g. CALL create_user($1, $2, $3);
-    : `
-      SELECT * FROM ${callName}(${mappedParams})
-      LIMIT ${Number(itemsPerPage) || 0} OFFSET ${Number(page * itemsPerPage) || 0};
-    `;
+      ? `CALL ${callName}(${mappedParams});`
+      : `
+        SELECT * FROM ${callName}(${mappedParams})
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      `;
+    const fullParams = [
+      ...params,
+      ...(callType === "proc" ? [] : [Number(itemsPerPage) || 0, Number(page * itemsPerPage) || 0])
+    ];
 
-    const result = await pool.query<T>(query, params);
+    console.log("QUERY:", query);
+
+    // Execute transaction block wrapped query
+    await client.query('BEGIN');
+    await client.query(`SET LOCAL app.current_user_id = ${Number(user_id)}`); // Fails due to 'NaN' for invalid id's
+    const result = await client.query<T>(query, fullParams);
+    await client.query('COMMIT');
+
     return result;
-  } catch (error: any) {
+  }
+  catch (error) {
+    try { await client.query('ROLLBACK'); } catch {}
     console.error(`Error executing ${callName}(...):`, error);
     throw error;
   }
+  finally { client.release(); }
+
+  return null;
 }
+
+
 
 // Wrapper for callRaw hiding DB-side types, extracting API call params & performing validation
 // On success, returns rows[] TableResult
@@ -148,6 +170,6 @@ export async function callDB (
     return { status: 'success', data: res?.rows ?? [] };
   }
   catch (error: any) {
-    return { status: 'failed', error: 'dbCallFailed', data: error.message };
+    return { status: 'failed', error: 'dbCallFailed', data: (isProductionEnvironment() ? "F's in the chat" : error.message) };
   }
 }
