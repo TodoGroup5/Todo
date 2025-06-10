@@ -27,7 +27,7 @@ app.use(express.json());
 app.use("/api", router);
 
 // Path to client build directory
-const distPath = path.join(dirname, '../client/dist');  // or '../client/build' if that's your folder
+const distPath = path.join(dirname, '../client/dist');
 
 // Serve static React files
 app.use(express.static(distPath));

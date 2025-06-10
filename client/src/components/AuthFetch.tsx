@@ -36,7 +36,7 @@ const App: React.FC = () => {
       const storedToken = localStorage.getItem('token');
       if (!storedToken) throw new Error('No token found');
 
-      const res = await fetch('https://ec2-16-28-24-187.af-south-1.compute.amazonaws.com/profile', {
+      const res = await fetch('https://ec2-16-28-30-48.af-south-1.compute.amazonaws.com/profile', {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${storedToken}`

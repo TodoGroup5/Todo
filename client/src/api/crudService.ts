@@ -3,7 +3,7 @@ import { JWTTokenProvider } from "./tokenProvider";
 import { isProductionEnvironment } from "../utility/deployment";
 
 export class CrudService {
-	private static readonly baseUrl = isProductionEnvironment() ? "https://ec2-16-28-24-187.af-south-1.compute.amazonaws.com/api"
+	private static readonly baseUrl = isProductionEnvironment() ? "https://ec2-16-28-30-48.af-south-1.compute.amazonaws.com/api"
 																: "http://localhost:3000/api";
 	private static tokenProvider: TokenProvider = new JWTTokenProvider();
 
