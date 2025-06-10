@@ -11,7 +11,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<object>;
+  login: (email: string, password: string) => Promise<{status: string, otpauthUrl: string}>;
   verify2FA: (code: string) => Promise<boolean>;
   logout: () => void;
 }
