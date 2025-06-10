@@ -14,7 +14,7 @@ if (!isProductionEnvironment()) {
 	const __filename = fileURLToPath(import.meta.url);
 	dirname = path.dirname(__filename);
 } else {
-	dirname = __dirname;
+	dirname = __dirname
 }
 
 //---------- Setup ----------//
@@ -29,10 +29,14 @@ app.use(express.json());
 app.use("/api", router);
 
 // Path to client build directory
-const distPath = path.join(dirname, '../client/dist');  // or '../client/build' if that's your folder
+const distPath = path.join(dirname, '../client/dist');
 
 // Serve static React files
 app.use(express.static(distPath));
+
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(dirname, '../client/dist', 'index.html'));
+});
 
 app.listen(PORT, () => {
 	console.log(`Server is running on http://localhost:${PORT}`);

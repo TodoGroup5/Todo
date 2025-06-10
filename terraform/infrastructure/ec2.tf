@@ -60,7 +60,7 @@ resource "aws_instance" "web" {
               ssl_certificate_key /etc/nginx/ssl/privatessl.key;
 
               location / {
-                  proxy_pass http://localhost:8080;
+                  proxy_pass http://localhost:3000;
                   proxy_set_header Host \$host;
                   proxy_set_header X-Real-IP \$remote_addr;
               }
@@ -77,4 +77,19 @@ resource "aws_instance" "web" {
   tags = {
     Name = "TodoGroup5-EC2"
   }
+}
+
+# Create an Elastic IP
+resource "aws_eip" "elastic_ec2" {
+  domain = "vpc"
+  
+  tags = {
+    Name = "ec2-eip"
+  }
+}
+
+# Associate the Elastic IP with the EC2 instance
+resource "aws_eip_association" "example" {
+  instance_id   = aws_instance.web.id
+  allocation_id = aws_eip.elastic_ec2.id
 }

@@ -10,7 +10,7 @@ const App: React.FC = () => {
 
   const login = async () => {
     try {
-      const response = await axios.post<{ token: string }>('https://ec2-16-28-24-187.af-south-1.compute.amazonaws.com/login', {
+      const response = await axios.post<{ token: string }>('https://ec2-16-28-30-48.af-south-1.compute.amazonaws.com/login', {
         email,
         password
       });
@@ -25,7 +25,7 @@ const App: React.FC = () => {
   const fetchProfile = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3001/profile', {
+      const response = await axios.get('https://ec2-16-28-30-48.af-south-1.compute.amazonaws.com/profile', {
         headers: {
           Authorization: `Bearer ${token}`
         }
