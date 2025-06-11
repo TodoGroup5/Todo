@@ -11,7 +11,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{status: string, otpauthUrl: string}>;
   verify2FA: (code: string) => Promise<boolean>;
   logout: () => void;
 }
@@ -29,37 +29,40 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [pendingAuth, setPendingAuth] = useState<{username: string, password: string} | null>(null);
+  const [pendingAuth, setPendingAuth] = useState<{email: string, password: string} | null>(null);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
-    setPendingAuth({ username, password });
+  const login = async (email: string, password: string): Promise<boolean> => {
+    setPendingAuth({ email, password });
     return true;
   };
 
   const verify2FA = async (code: string): Promise<boolean> => {
     if (!pendingAuth) return false;
-
-      const mockUser = getMockUser('greg');
+    const mockUser = getMockUser(pendingAuth.email);
       setUser(mockUser);
       setToken('mock-jwt-token-' + Date.now());
       setPendingAuth(null);
-      return true;
-
+    return true
     try {
       // Simulate API call
-      const response = await fetch('/api/verify-2fa', {
+      const response = await fetch('http://localhost:3000/api/login/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          username: pendingAuth.username, 
-          password: pendingAuth.password, 
-          code 
+          email: pendingAuth.email, 
+          twoFactorToken: code 
         })
       });
 
       if (response.ok) {
+        console.log('success verified 2fa')
         const data = await response.json();
-        setUser(data.user);
+        setUser({
+          id: data.user.id,
+          username: data.user.name,
+          roles: ['access_admin']
+        });
+        console.log(data)
         setToken(data.token);
         setPendingAuth(null);
         return true;
@@ -67,7 +70,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return false;
     } catch (error) {
       // Simulate successful 2FA for demo
-      const mockUser = getMockUser(pendingAuth.username);
+      const mockUser = getMockUser(pendingAuth.email);
       setUser(mockUser);
       setToken('mock-jwt-token-' + Date.now());
       setPendingAuth(null);
@@ -91,7 +94,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return {
       id: '1',
       username,
-      roles: userRoles[username] || ['todo_user']
+      roles: userRoles[username] || ['access_admin']
     };
   }; 
 

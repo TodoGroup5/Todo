@@ -201,7 +201,7 @@ const AuthPage: React.FC = () => {
 
           {error && <div className="error-message">{error}</div>}
 
-          {isLogin ? (
+          {isLogin ? (       
             <div className="auth-form">
               <div className="form-group">
                 <label htmlFor="username">Email Address</label>
