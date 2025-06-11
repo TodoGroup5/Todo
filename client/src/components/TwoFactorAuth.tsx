@@ -27,6 +27,7 @@ const TwoFactorAuth: React.FC = () => {
 
     try {
       const success = await verify2FA(code);
+      console.log("2FA VERIFY SUCCESS:", success);
       if (success) {
         navigate('/dashboard');
       } else {

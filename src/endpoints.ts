@@ -288,11 +288,12 @@ router.post('/change-password', async (req: Request, res: Response) => {
 
 // Returns { isAuthenticated: true } if the user has a valid JWT
 router.get('/auth', async (req: Request, res: Response) => {
-    type AuthResponse = { isAuthenticated: boolean };
+    type AuthResponse = { isAuthenticated: true, user_id: number, email: string } | { isAuthenticated: false };
     try {
         //----- Check JWT -----//
         const token = checkJWTAuth(req);
-        sendResponse<AuthResponse, AuthResponse>(res, { status: 'success', data: { isAuthenticated: (token != null) } }, 200);
+        const data: AuthResponse = (token != null) ? { isAuthenticated: true, user_id: token.user_id, email: token.email } : { isAuthenticated: false };
+        sendResponse<AuthResponse, AuthResponse>(res, { status: 'success', data }, 200);
 
     } catch (err) { // Catch-all
         console.error(err);
