@@ -1,20 +1,23 @@
 import "dotenv/config";
+
 import express from "express";
-import router from "./endpoints.js";
 import cors from "cors";
-import path from 'path';
-import { attachCsrfToken, verifyCsrfToken } from "./lib/csrf";
-import { isProductionEnvironment } from "./lib/deployment.js";
-import { fileURLToPath } from 'url';
 import cookieParser from "cookie-parser";
+import path from "path";
+import { fileURLToPath } from "url";
+
+import router from "./endpoints";
+import { attachCsrfToken, verifyCsrfToken } from "./lib/csrf";
+import { isProductionEnvironment } from "./lib/deployment";
+import { createRateLimiter } from "./lib/rateLimiter";
 
 let dirname;
 
 if (!isProductionEnvironment()) {
-	const __filename = fileURLToPath(import.meta.url);
-	dirname = path.dirname(__filename);
+  const __filename = fileURLToPath(import.meta.url);
+  dirname = path.dirname(__filename);
 } else {
-	dirname = __dirname
+  dirname = __dirname;
 }
 
 //---------- Setup ----------//
@@ -24,20 +27,24 @@ const PORT = Number(process.env.PORT ?? 3000);
 app.use(cors());
 // app.use(attachCsrfToken());
 // app.use(verifyCsrfToken());
+
+const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 60 });
+app.use(limiter.middleware());
+
 app.use(cookieParser());
 app.use(express.json());
 app.use("/api", router);
 
 // Path to client build directory
-const distPath = path.join(dirname, '../client/dist');
+const distPath = path.join(dirname, "../client/dist");
 
 // Serve static React files
 app.use(express.static(distPath));
 
 app.get(/^(?!\/api).*/, (req, res) => {
-  res.sendFile(path.join(dirname, '../client/dist', 'index.html'));
+  res.sendFile(path.join(dirname, "../client/dist", "index.html"));
 });
 
 app.listen(PORT, () => {
-	console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
