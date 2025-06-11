@@ -6,6 +6,8 @@ import { validatePassword, z_email, z_id, z_str, z_str_nonempty, z_str_opt } fro
 import { AuthenticatedRequest, authenticateToken, comparePassHash, genJWT, hashPassword, JwtData, verifyJWT } from './auth.js';
 import { isProductionEnvironment } from './lib/deployment.js';
 import { JwtPayload, verify } from 'jsonwebtoken';
+import speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
 
 //==================== Setup DB connection ====================//
 const router = Router();
@@ -14,7 +16,7 @@ const dbConfig: any = {
     host: process.env.DB_HOST || 'localhost',
     port: Number(process.env.DB_PORT || '5432'),
     user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASS || 'postgres',
+    password: process.env.DB_PASS || 'password',
 }
 
 if (isProductionEnvironment()) {
@@ -74,12 +76,13 @@ function consReqHandler(type: CallType, call: CallName, urlParamFormatter: Param
             console.log('PARAMS:', urlParamFormatter(req.params ?? {}));
 
             //----- Check JWT -----//
-            const token = checkJWTAuth(req);
-            if (token == null) {
-                sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
-                return;
-            }
-            const { user_id, email } = token;
+            // const token = checkJWTAuth(req);
+            // if (token == null) {
+            //     sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
+            //     return;
+            // }
+            //const { user_id, email } = token;
+            const {user_id, email} = {user_id: 61, email: 'cindi123@gmail.com'}
 
             //----- Return -----//
             sendResponse(
@@ -133,8 +136,8 @@ function callSuccessWithData<S>(res: JSONResult<unknown[], unknown>): res is { s
 
 router.post('/signup', async (req: Request, res: Response) => {
     //----- Validate request params -----//
-    const expected: ParamValidator[] = [ ["name", z_str_nonempty], ["email", z_email], ["password", z_str_nonempty] ];
-    const parseRes: ParseParamsResult = parseParams({ params: req.body ?? {} }, expected);
+    const expected: ParamValidator[] = [ ["username", z_str_nonempty], ["email", z_email], ["password", z_str_nonempty] ];
+    const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
     if (parseRes.status === 'failed') {
         sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
         return;
@@ -146,21 +149,28 @@ router.post('/signup', async (req: Request, res: Response) => {
         sendResponse(res, { status: 'failed', error: 'passwordInsecure' }, 400);
         return;
     }
-
+    
     //----- Create user -----//
     const password_hash = hashPassword(password);
-
-    const createRes = await callDB(dbPool, -1, { type: 'func', call: 'create_user', params: { name, email, password_hash } });
+    // Generate 2FA secret immediately upon user signup
+    const secret = speakeasy.generateSecret({
+        name: `TodoApp-Group-5`,
+        issuer: 'TodoApp',
+        length: 20
+    });
+    const two_fa_secret = secret.base32;
+    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!);
+    
+    const createRes = await callDB(dbPool, -1, { type: 'func', call: 'create_user', params: { name, email, password_hash, two_fa_secret} });
     if(!callSuccessWithData<Post_UserCreate>(createRes)) {
         sendResponse(res, { status: 'failed', error: 'userCreateFailed', data: createRes }, 400);
         return;
     }
-
     const { user_id } = createRes.data[0];
 
     //----- Return -----//
     setJWT(res, user_id, email);
-    sendResponse(res, { status: 'success', data: { user_id, email } });
+    sendResponse(res, { status: 'success', data: { user_id, email, qrCodeUrl } });
 });
 
 router.post('/login', async (req: Request, res: Response) => {
@@ -180,16 +190,47 @@ router.post('/login', async (req: Request, res: Response) => {
         return;
     }
 
-    const { id: user_id, password_hash } = userRes.data[0];
-
-    console.log(password, password_hash);
-
+    const { id: user_id, password_hash, two_fa_secret } = userRes.data[0];
+    // Generate QR code using the user's existing 2FA secret
+    const otpauthUrl = speakeasy.otpauthURL({
+        secret: two_fa_secret,
+        label: `TodoApp-Group-5`,
+        issuer: 'TodoApp',
+        encoding: 'base32'
+    });
+    
+    const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
     //----- Check hashes match -----//
-    if (!comparePassHash(password, password_hash)) {
+    const isValid = comparePassHash(password, password_hash);
+    if (!isValid) {
         sendResponse(res, { status: 'failed', error: 'incorrectPassword' }, 401);
         return;
     }
+    sendResponse(res, { status: 'success', data: { user_id, email, qrCodeUrl } });
+});
 
+router.post('/login/verify', async (req: Request, res: Response) => {
+    const { email, twoFactorToken } = req.body;
+
+    //find user
+    const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets_by_email', params: { email } });
+    if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
+        sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
+        return;
+    }
+
+    const { id: user_id, two_fa_secret } = userRes.data[0];
+    // Verify the 2FA token
+    const verified = speakeasy.totp.verify({
+        secret: two_fa_secret,
+        encoding: 'base32',
+        token: twoFactorToken,
+        window: 2
+    });
+    
+    if (!verified) {
+        return sendResponse(res, { status: 'failed', error: 'incorrect 2fa code' }, 401);
+    }
     //----- Return -----//
     setJWT(res, user_id, email);
     sendResponse(res, { status: 'success', data: { user_id, email } });

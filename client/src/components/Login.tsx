@@ -13,6 +13,7 @@ interface SignupData {
 }
 
 interface loginResponse {
+  qrCodeUrl: string;
   user_id: number,
   email: string,
 }
@@ -74,9 +75,10 @@ const AuthPage: React.FC = () => {
 
       const success = await login(signInData.email, signInData.password);
       if (success) {
-        navigate('/2fa');
+
+        navigate('/2fa', {state:{otpauthURL: response.data.data.qrCodeUrl}});
       } else {
-        setError('Invalid username or password');
+        setError('Invalid email or password');
       }
     } catch (err) {
       setError('Login failed. Please try again.');
@@ -122,7 +124,7 @@ const AuthPage: React.FC = () => {
 
     try {
       const userData = {
-        name: signupData.name,
+        username: signupData.name,
         email: signupData.email,
         password: signupData.password,
       };
@@ -201,7 +203,7 @@ const AuthPage: React.FC = () => {
 
           {error && <div className="error-message">{error}</div>}
 
-          {isLogin ? (
+          {isLogin ? (       
             <div className="auth-form">
               <div className="form-group">
                 <label htmlFor="email">Email</label>

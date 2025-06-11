@@ -1,7 +1,8 @@
 import type { ApiResponse, CrudOptions, TokenProvider } from "./types";
 import { JWTTokenProvider } from "./tokenProvider";
+import { baseUrl } from "../utility/deployment";
 export class CrudService {
-	private static readonly baseUrl = `${window.location.origin}/api`;
+	private static readonly baseUrl = baseUrl();
 																
 	private static tokenProvider: TokenProvider = new JWTTokenProvider();
 
