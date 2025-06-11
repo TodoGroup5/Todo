@@ -4,12 +4,12 @@
 import { Request, Response, NextFunction } from "express";
 import { HTTP_STATUS } from "./http";
 
-export interface RateLimitOptions {
+interface RateLimitOptions {
   windowMs: number;
   maxRequests: number;
 }
 
-export class RateLimiter {
+class RateLimiter {
   private counters = new Map<string, { count: number; windowStart: number }>();
 
   constructor(
