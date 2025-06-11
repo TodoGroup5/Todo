@@ -213,11 +213,13 @@ CREATE OR REPLACE FUNCTION create_user(
 RETURNS TABLE(user_id INT)
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
 BEGIN
-    PERFORM check_current_user_exists();
+    -- PERFORM check_current_user_exists();
 
-    -- Only Access Administrator can create users
-    IF NOT current_user_is_access_admin() THEN
+    -- Only System & Access Administrator can create users
+    IF v_current_user_id <> -1 AND NOT current_user_is_access_admin() THEN
         RAISE EXCEPTION 'Permission denied: Only Access Administrator can create users';
     END IF;
 
@@ -414,36 +416,91 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     v_current_user_id INT := get_current_user_id();
+    v_is_admin BOOLEAN := current_user_is_access_admin();
 BEGIN
-    PERFORM check_current_user_exists();
+    -- Skip existence check if called by the System user
+    IF v_current_user_id <> -1 THEN
+        PERFORM check_current_user_exists();
+    END IF;
 
-    -- Only Access Administrator can update other users
-    -- Normal user can update only own details except password_hash and two_fa_secret
-    IF v_current_user_id <> p_user_id THEN
-        IF NOT current_user_is_access_admin() THEN
+    -- Permission checks
+    IF v_current_user_id = -1 THEN
+        -- System user: full access, no restrictions
+        NULL;
+
+    ELSIF v_current_user_id <> p_user_id THEN
+        -- User updating someone else
+        IF NOT v_is_admin THEN
             RAISE EXCEPTION 'Permission denied: Cannot update other users'' details';
         END IF;
+
     ELSE
-        -- If current user updating self, deny updating password_hash and 2FA here for normal users
+        -- User updating self
         IF (p_password_hash IS NOT NULL OR p_two_fa_secret IS NOT NULL)
-            AND NOT current_user_is_access_admin() THEN
+            AND NOT v_is_admin THEN
             RAISE EXCEPTION 'Permission denied: Cannot update password or 2FA secret';
         END IF;
     END IF;
 
+    -- Apply the update
     UPDATE users
     SET
         name = COALESCE(p_name, name),
         email = COALESCE(p_email, email),
-        password_hash = CASE WHEN current_user_is_access_admin()
-                                 THEN COALESCE(p_password_hash, password_hash)
-                                 ELSE password_hash END,
-        two_fa_secret = CASE WHEN current_user_is_access_admin()
-                                 THEN COALESCE(p_two_fa_secret, two_fa_secret)
-                                 ELSE two_fa_secret END
+        password_hash = CASE
+            WHEN v_current_user_id = -1 OR v_is_admin THEN COALESCE(p_password_hash, password_hash)
+            ELSE password_hash
+        END,
+        two_fa_secret = CASE
+            WHEN v_current_user_id = -1 OR v_is_admin THEN COALESCE(p_two_fa_secret, two_fa_secret)
+            ELSE two_fa_secret
+        END
     WHERE id = p_user_id;
 END;
 $$;
+
+
+-- CREATE OR REPLACE PROCEDURE update_user(
+--     p_user_id INTEGER,
+--     p_name VARCHAR DEFAULT NULL,
+--     p_email VARCHAR DEFAULT NULL,
+--     p_password_hash VARCHAR DEFAULT NULL,
+--     p_two_fa_secret VARCHAR DEFAULT NULL
+-- )
+-- LANGUAGE plpgsql
+-- AS $$
+-- DECLARE
+--     v_current_user_id INT := get_current_user_id();
+-- BEGIN
+--     -- PERFORM check_current_user_exists();
+
+--     -- Only Access Administrator can update other users
+--     -- Normal user can update only own details except password_hash and two_fa_secret
+--     IF v_current_user_id <> p_user_id AND v_current_user_id <> -1 THEN
+--         IF NOT current_user_is_access_admin() THEN
+--             RAISE EXCEPTION 'Permission denied: Cannot update other users'' details';
+--         END IF;
+--     ELSE
+--         -- If current user updating self, deny updating password_hash and 2FA here for normal users
+--         IF (p_password_hash IS NOT NULL OR p_two_fa_secret IS NOT NULL)
+--             AND NOT current_user_is_access_admin() THEN
+--             RAISE EXCEPTION 'Permission denied: Cannot update password or 2FA secret';
+--         END IF;
+--     END IF;
+
+--     UPDATE users
+--     SET
+--         name = COALESCE(p_name, name),
+--         email = COALESCE(p_email, email),
+--         password_hash = CASE WHEN current_user_is_access_admin()
+--                                  THEN COALESCE(p_password_hash, password_hash)
+--                                  ELSE password_hash END,
+--         two_fa_secret = CASE WHEN current_user_is_access_admin()
+--                                  THEN COALESCE(p_two_fa_secret, two_fa_secret)
+--                                  ELSE two_fa_secret END
+--     WHERE id = p_user_id;
+-- END;
+-- $$;
 
 CREATE OR REPLACE PROCEDURE delete_user(p_user_id INTEGER)
 LANGUAGE plpgsql

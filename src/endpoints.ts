@@ -58,10 +58,9 @@ function getJWT(req: Request): string | null {
 }
 
 function checkJWTAuth(req: Request): JwtData | null {
-    return { user_id: 2, email: "asdf@asdf.com" };
-    // const token = getJWT(req);
-    // if (!token) return null;
-    // return verifyJWT(token);
+    const token = getJWT(req);
+    if (!token) return null;
+    return verifyJWT(token);
 }
 
 type ParamsDict<T = unknown> = { [key: string]: T };
