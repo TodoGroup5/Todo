@@ -206,9 +206,9 @@ const AuthPage: React.FC = () => {
           {isLogin ? (       
             <div className="auth-form">
               <div className="form-group">
-                <label htmlFor="username">Username</label>
+                <label htmlFor="username">Email</label>
                 <input
-                  id="username"
+                  id="email"
                   type="text"
                   value={loginData.email}
                   onChange={(e) => handleLoginInputChange('email', e.target.value)}

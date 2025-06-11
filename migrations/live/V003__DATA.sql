@@ -1,6 +1,6 @@
 -- Insert users (expanded from 25 to 60 users)
 INSERT INTO users (name, email, password_hash, two_fa_secret) VALUES
-('Alice Smith', 'alice@example.com', 'hashed_pwd_1', '2FA1'),
+('Alice Smith', 'alice@example.com', '$2b$10$XRRPo3.cCB2BrmFG1zS8U.QoSAjYQjg.L45dAD6MiwmvELZWwd7KK', 'NUXXG43ONQSTSJTNF5JE6I2SMRZEW3RD'),
 ('Bob Jones', 'bob@example.com', 'hashed_pwd_2', '2FA2'),
 ('Charlie Brown', 'charlie@example.com', 'hashed_pwd_3', NULL),
 ('Diana Prince', 'diana@example.com', 'hashed_pwd_4', '2FA4'),

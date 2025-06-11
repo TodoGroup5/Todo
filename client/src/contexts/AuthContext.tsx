@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
+import { baseUrl } from '../utility/deployment';
 
 export interface User {
   id: string;
@@ -17,6 +18,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const url = baseUrl();
+
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -39,7 +42,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const verify2FA = async (code: string): Promise<boolean> => {
     try {
       // Simulate API call
-      const response = await fetch('http://localhost:3000/api/login/verify', {
+      const response = await fetch(`${url}/login/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -53,7 +56,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser({
           id: data.data.user_id,
           username: data.data.email,
-          roles: ['todo_user']
+          roles: ['access_admin']
         });
         setToken("ddd");
         setPendingAuth(null);
