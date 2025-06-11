@@ -28,7 +28,10 @@ app.use(cors());
 // app.use(attachCsrfToken());
 // app.use(verifyCsrfToken());
 
-const limiter = createRateLimiter({ windowMs: 60_000, maxRequests: 60 });
+const limiter = createRateLimiter({
+  windowInMilliseconds: 60_000,
+  maximumAllowedRequests: 60,
+});
 app.use(limiter.middleware());
 
 app.use(cookieParser());

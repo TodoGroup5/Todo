@@ -4,45 +4,70 @@
 import { Request, Response, NextFunction } from "express";
 import { HTTP_STATUS } from "./http";
 
-interface RateLimitOptions {
-  windowMs: number;
-  maxRequests: number;
+interface RateLimitConfigurationOptions {
+  windowInMilliseconds: number;
+  maximumAllowedRequests: number;
 }
 
 class RateLimiter {
-  private counters = new Map<string, { count: number; windowStart: number }>();
+  private requestCounters = new Map<
+    string,
+    { requestCount: number; windowStartTimestamp: number }
+  >();
 
   constructor(
-    private opts: Required<Pick<RateLimitOptions, "windowMs" | "maxRequests">>
+    private configuration: Required<
+      Pick<
+        RateLimitConfigurationOptions,
+        "windowInMilliseconds" | "maximumAllowedRequests"
+      >
+    >
   ) {}
 
   middleware() {
-    return (req: Request, res: Response, next: NextFunction) => {
-      const key = req.ip == null || req.ip == undefined ? "anonymous" : req.ip;
+    return (
+      request: Request,
+      response: Response,
+      nextFunction: NextFunction
+    ) => {
+      const clientIpAddress =
+        request.ip === null || request.ip === undefined
+          ? "anonymous"
+          : request.ip;
 
-      const now = Date.now();
-      const rec = this.counters.get(key);
+      const currentTimestamp = Date.now();
+      const existingCounterRecord = this.requestCounters.get(clientIpAddress);
 
-      if (!rec || now - rec.windowStart > this.opts.windowMs) {
-        this.counters.set(key, { count: 1, windowStart: now });
-        return next();
+      if (
+        !existingCounterRecord ||
+        currentTimestamp - existingCounterRecord.windowStartTimestamp >
+          this.configuration.windowInMilliseconds
+      ) {
+        this.requestCounters.set(clientIpAddress, {
+          requestCount: 1,
+          windowStartTimestamp: currentTimestamp,
+        });
+        return nextFunction();
       }
 
-      if (rec.count < this.opts.maxRequests) {
-        rec.count += 1;
-        return next();
+      if (
+        existingCounterRecord.requestCount <
+        this.configuration.maximumAllowedRequests
+      ) {
+        existingCounterRecord.requestCount += 1;
+        return nextFunction();
       }
 
-      res
+      response
         .status(HTTP_STATUS.TOO_MANY_REQUESTS)
         .json({ message: "Too Many Requests" });
     };
   }
 }
 
-export function createRateLimiter(opts: RateLimitOptions) {
+export function createRateLimiter(opts: RateLimitConfigurationOptions) {
   return new RateLimiter({
-    windowMs: opts.windowMs,
-    maxRequests: opts.maxRequests,
+    windowInMilliseconds: opts.windowInMilliseconds,
+    maximumAllowedRequests: opts.maximumAllowedRequests,
   });
 }
