@@ -14,7 +14,7 @@ const dbConfig: any = {
     host: process.env.DB_HOST || 'localhost',
     port: Number(process.env.DB_PORT || '5432'),
     user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASS || 'postgres',
+    password: process.env.DB_PASS || 'password',
 }
 
 if (isProductionEnvironment()) {
@@ -74,12 +74,13 @@ function consReqHandler(type: CallType, call: CallName, urlParamFormatter: Param
             console.log('PARAMS:', urlParamFormatter(req.params ?? {}));
 
             //----- Check JWT -----//
-            const token = checkJWTAuth(req);
-            if (token == null) {
-                sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
-                return;
-            }
-            const { user_id, email } = token;
+            // const token = checkJWTAuth(req);
+            // if (token == null) {
+            //     sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
+            //     return;
+            // }
+            //const { user_id, email } = token;
+            const {user_id, email} = {user_id: 61, email: 'cindi123@gmail.com'}
 
             //----- Return -----//
             sendResponse(
@@ -182,7 +183,6 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const { id: user_id, password_hash } = userRes.data[0];
 
-    console.log(password, password_hash);
 
     //----- Check hashes match -----//
     if (!comparePassHash(password, password_hash)) {

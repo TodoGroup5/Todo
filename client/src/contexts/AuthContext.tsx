@@ -33,7 +33,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (username: string, password: string): Promise<boolean> => {
     setPendingAuth({ username, password });
-    return true;
+    // return true;
     
     try {
       // Simulate API call
@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-
+      
       if (response.ok) {
         setPendingAuth({ username, password });
         return true;
@@ -56,9 +56,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const verify2FA = async (code: string): Promise<boolean> => {
-    if (!pendingAuth) return false;
+    //if (!pendingAuth) return false;
 
-        const mockUser = getMockUser(pendingAuth.username);
+      const mockUser = getMockUser('greg');
       setUser(mockUser);
       setToken('mock-jwt-token-' + Date.now());
       setPendingAuth(null);

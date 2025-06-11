@@ -72,11 +72,12 @@ const AuthPage: React.FC = () => {
 
       UserStorageService.setUser(response.data.data.user_id, response.data.data.email)
 
-      const success = await login(signInData.email, signInData.password);
+      //const success = await login(signInData.email, signInData.password);
+      const success = response.data.status === 'success'
       if (success) {
         navigate('/2fa');
       } else {
-        setError('Invalid username or password');
+        setError('Invalid email or password');
       }
     } catch (err) {
       setError('Login failed. Please try again.');
@@ -204,14 +205,14 @@ const AuthPage: React.FC = () => {
           {isLogin ? (
             <div className="auth-form">
               <div className="form-group">
-                <label htmlFor="username">Username</label>
+                <label htmlFor="username">Email Address</label>
                 <input
                   id="username"
                   type="text"
                   value={loginData.email}
                   onChange={(e) => handleLoginInputChange('email', e.target.value)}
                   disabled={loading}
-                  placeholder="Enter your username"
+                  placeholder="Enter your email address"
                 />
               </div>
               
