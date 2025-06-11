@@ -44,9 +44,10 @@ const AdminPanel: React.FC = () => {
     try {
       const response = await CrudService.customRequest('/user/all', 'GET');
       if (response.error) throw new Error("[FETCH]: " + response.error + "\n" + response.message);
-      if (!response.data || response.data.status === 'failed') throw new Error("[DATA]: " + response.data?.error);
-
-      const usersData: User[] = response.data.data ?? [];
+      if (!response.data || response.data.status === 'failed') {
+        throw new Error("[DATA]: " + (response.data && 'error' in response.data ? response.data.error : 'Unknown error'));
+      }
+      const usersData: User[] = Array.isArray(response.data?.data) ? response.data.data : [];
       const usersWithRoles: UserWithRoles[] = [];
 
       for (const user of usersData) {
@@ -72,7 +73,9 @@ const AdminPanel: React.FC = () => {
     try {
       const response = await CrudService.read<GlobalRole[]>('/global-role/all');
       if (response.error) throw new Error("[FETCH]: " + response.error + "\n" + response.message);
-      if (!response.data || response.data.status === 'failed') throw new Error("[DATA]: " + response.data?.error);
+      if (!response.data || response.data.status === 'failed') {
+        throw new Error("[DATA]: " + (response.data && 'error' in response.data ? response.data.error : 'Unknown error'));
+      }
 
       setGlobalRoles(response.data.data as GlobalRole[] ?? []);
     } catch (err) {
@@ -84,7 +87,9 @@ const AdminPanel: React.FC = () => {
     try {
       const response = await CrudService.read<LocalRole[]>('/local-role/all');
       if (response.error) throw new Error("[FETCH]: " + response.error + "\n" + response.message);
-      if (!response.data || response.data.status === 'failed') throw new Error("[DATA]: " + response.data?.error);
+      if (!response.data || response.data.status === 'failed') {
+        throw new Error("[DATA]: " + (response.data && 'error' in response.data ? response.data.error : 'Unknown error'));
+      }
 
       setLocalRoles(response.data.data as LocalRole[] ?? []);
     } catch (err) {
@@ -167,7 +172,7 @@ const AdminPanel: React.FC = () => {
 
       if (response.error || response.data?.status === 'failed') throw new Error("[CREATE]: " + response.error);
 
-      const userId = response.data.data?.id;
+      const userId = (response.data.data as { id: string }).id;
       if (newUser.role && userId) {
         const roleResponse = await CrudService.create(`/user/${userId}/global-role/${newUser.role}/assign`, {});
         if (roleResponse.error) console.log("Failed to assign role to new user", roleResponse.error);
