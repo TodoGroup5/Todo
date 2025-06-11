@@ -12,7 +12,7 @@ const TwoFactorAuth: React.FC = () => {
   const { verify2FA } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { otpauthUrl } = location.state || {};
+  const otpauthURL = location.state?.otpauthURL;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +47,7 @@ const TwoFactorAuth: React.FC = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <OTPQRCode otpauthUrl={otpauthUrl}/>
+        <OTPQRCode otpauthUrl={otpauthURL}/>
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label htmlFor="code">Verification Code</label>

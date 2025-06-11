@@ -37,12 +37,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const verify2FA = async (code: string): Promise<boolean> => {
-    if (!pendingAuth) return false;
-    const mockUser = getMockUser(pendingAuth.email);
-      setUser(mockUser);
-      setToken('mock-jwt-token-' + Date.now());
-      setPendingAuth(null);
-    return true
     try {
       // Simulate API call
       const response = await fetch('http://localhost:3000/api/login/verify', {
@@ -53,28 +47,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           twoFactorToken: code 
         })
       });
-
+      
       if (response.ok) {
-        console.log('success verified 2fa')
         const data = await response.json();
         setUser({
-          id: data.user.id,
-          username: data.user.name,
-          roles: ['access_admin']
+          id: data.data.user_id,
+          username: data.data.email,
+          roles: ['todo_user']
         });
-        console.log(data)
-        setToken(data.token);
+        setToken("ddd");
         setPendingAuth(null);
         return true;
       }
       return false;
     } catch (error) {
-      // Simulate successful 2FA for demo
-      const mockUser = getMockUser(pendingAuth.email);
-      setUser(mockUser);
-      setToken('mock-jwt-token-' + Date.now());
-      setPendingAuth(null);
-      return true;
+      console.log(error)
     }
   };
 
