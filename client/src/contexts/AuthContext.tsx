@@ -33,30 +33,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (username: string, password: string): Promise<boolean> => {
     setPendingAuth({ username, password });
-    // return true;
-    
-    try {
-      // Simulate API call
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      
-      if (response.ok) {
-        setPendingAuth({ username, password });
-        return true;
-      }
-      return false;
-    } catch (error) {
-      // Simulate successful login for demo
-      setPendingAuth({ username, password });
-      return true;
-    }
+    return true;
   };
 
   const verify2FA = async (code: string): Promise<boolean> => {
-    //if (!pendingAuth) return false;
+    if (!pendingAuth) return false;
 
       const mockUser = getMockUser('greg');
       setUser(mockUser);

@@ -72,8 +72,7 @@ const AuthPage: React.FC = () => {
 
       UserStorageService.setUser(response.data.data.user_id, response.data.data.email)
 
-      //const success = await login(signInData.email, signInData.password);
-      const success = response.data.status === 'success'
+      const success = await login(signInData.email, signInData.password);
       if (success) {
         navigate('/2fa');
       } else {
