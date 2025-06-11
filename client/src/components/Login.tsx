@@ -124,7 +124,7 @@ const AuthPage: React.FC = () => {
 
     try {
       const userData = {
-        username: signupData.name,
+        name: signupData.name,
         email: signupData.email,
         password: signupData.password,
       };

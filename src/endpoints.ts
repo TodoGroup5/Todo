@@ -76,13 +76,12 @@ function consReqHandler(type: CallType, call: CallName, urlParamFormatter: Param
             console.log('PARAMS:', urlParamFormatter(req.params ?? {}));
 
             //----- Check JWT -----//
-            // const token = checkJWTAuth(req);
-            // if (token == null) {
-            //     sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
-            //     return;
-            // }
-            //const { user_id, email } = token;
-            const {user_id, email} = {user_id: 61, email: 'cindi123@gmail.com'}
+            const token = checkJWTAuth(req);
+            if (token == null) {
+                sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
+                return;
+            }
+            const { user_id, email } = token;
 
             //----- Return -----//
             sendResponse(
@@ -136,7 +135,7 @@ function callSuccessWithData<S>(res: JSONResult<unknown[], unknown>): res is { s
 
 router.post('/signup', async (req: Request, res: Response) => {
     //----- Validate request params -----//
-    const expected: ParamValidator[] = [ ["username", z_str_nonempty], ["email", z_email], ["password", z_str_nonempty] ];
+    const expected: ParamValidator[] = [ ["name", z_str_nonempty], ["email", z_email], ["password", z_str_nonempty] ];
     const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
     if (parseRes.status === 'failed') {
         sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
@@ -287,12 +286,18 @@ router.post('/change-password', async (req: Request, res: Response) => {
     sendResponse(res, { status: "success" });
 });
 
-// Example protected route
-router.get('/profile', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
-    res.json({
-        message: 'Welcome!',
-        user: (req as AuthenticatedRequest).user,
-    });
+// Returns { isAuthenticated: true } if the user has a valid JWT
+router.get('/auth', async (req: Request, res: Response) => {
+    type AuthResponse = { isAuthenticated: boolean };
+    try {
+        //----- Check JWT -----//
+        const token = checkJWTAuth(req);
+        sendResponse<AuthResponse, AuthResponse>(res, { status: 'success', data: { isAuthenticated: (token != null) } }, 200);
+
+    } catch (err) { // Catch-all
+        console.error(err);
+        sendResponse(res, { status: 'failed', error: 'internalServerError' }, 500);
+    }
 });
 
 
