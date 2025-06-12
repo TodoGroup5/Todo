@@ -31,7 +31,6 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [pendingAuth, setPendingAuth] = useState<{email: string, password: string} | null>(null);
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -58,7 +57,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           username: data.data.email,
           roles: ['access_admin']
         });
-        setToken("ddd");
         setPendingAuth(null);
         return true;
       }
@@ -70,31 +68,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = () => {
     setUser(null);
-    setToken(null);
     setPendingAuth(null);
   };
 
-  const getMockUser = (username: string): User => {
-    const userRoles: Record<string, string[]> = {
-      'greg': ['access_admin'],
-      'dino': ['team_lead'],
-      'cindi': ['todo_user']
-    };
-
-    return {
-      id: '1',
-      username,
-      roles: userRoles[username] || ['access_admin']
-    };
-  }; 
-
-  const isAuthenticated = !!user && !!token;
+  const isAuthenticated = true;
 
   return (
     <AuthContext.Provider value={{
       user,
-      token,
       isAuthenticated,
+      token: "",
       login,
       verify2FA,
       logout

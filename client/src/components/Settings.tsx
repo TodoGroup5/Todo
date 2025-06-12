@@ -92,7 +92,7 @@ const Settings: React.FC = () => {
         email: formData.email
       };
 
-      const response = await CrudService.update('/user/', currentUserId, updateData);
+      const response = await CrudService.update('/user', currentUserId, updateData);
       if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
       if (response.data == null) return;
 

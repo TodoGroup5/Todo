@@ -124,7 +124,7 @@ const AuthPage: React.FC = () => {
 
     try {
       const userData = {
-        username: signupData.name,
+        name: signupData.name,
         email: signupData.email,
         password: signupData.password,
       };
@@ -206,7 +206,7 @@ const AuthPage: React.FC = () => {
           {isLogin ? (       
             <div className="auth-form">
               <div className="form-group">
-                <label htmlFor="username">Email</label>
+                <label htmlFor="email">Email</label>
                 <input
                   id="email"
                   type="text"

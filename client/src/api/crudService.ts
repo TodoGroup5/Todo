@@ -65,9 +65,11 @@ export class CrudService {
 		return this.makeRequest<R>(endpoint, "GET", undefined, options);
 	}
 	static update<T, R>(endpoint: string, id: string | number, data: Partial<T>, options?: CrudOptions): Promise<ApiResponse<R>> {
+		if (endpoint.endsWith("/")) { endpoint = endpoint.slice(0, -1); }
 		return this.makeRequest<R>(`${endpoint}/${id}`, "PUT", data, options);
 	}
 	static delete<R>(endpoint: string, id: string | number, options?: CrudOptions): Promise<ApiResponse<R>> {
+		if (endpoint.endsWith("/")) { endpoint = endpoint.slice(0, -1); }
 		return this.makeRequest<R>(`${endpoint}/${id}`, "DELETE", undefined, options);
 	}
 	static customRequest<R>(endpoint: string, method: string, body?: any, options?: CrudOptions): Promise<ApiResponse<R>> {
