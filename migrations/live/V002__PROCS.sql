@@ -890,48 +890,43 @@ $$;
 
 ---------- Todos Procedures ----------
 
+
 CREATE OR REPLACE PROCEDURE create_todo(
-    p_created_by INTEGER,
     p_team_id INTEGER,
     p_title VARCHAR,
     p_description VARCHAR,
     p_status INTEGER,
-    p_assigned_to INTEGER DEFAULT NULL,
-    p_due_date DATE DEFAULT NULL
+    p_due_date DATE,
+    p_assigned_to INTEGER DEFAULT NULL
 )
 LANGUAGE plpgsql
 AS $$
 DECLARE
     v_current_user_id INT := get_current_user_id();
-    v_assigned_user_id INTEGER;
+    v_membership_id INTEGER;
 BEGIN
     PERFORM check_current_user_exists();
 
-    -- Ensure the creator is the current user
-    IF v_current_user_id <> p_created_by THEN
-        RAISE EXCEPTION 'Permission denied: Cannot create todo for another user.';
+    -- Check if user is member of the team
+    IF NOT current_user_is_member_of_team(p_team_id) THEN
+        RAISE EXCEPTION 'Permission denied: Not a member of the team.';
     END IF;
 
-    -- Check if current user is Access Administrator, Team Lead, or TODO User for the team
-    IF NOT current_user_is_access_admin()
-        AND NOT current_user_has_local_role(p_team_id, 'Team Lead')
-        AND NOT current_user_has_local_role(p_team_id, 'TODO User') THEN
-        RAISE EXCEPTION 'Permission denied: Not authorized to create todos for this team.';
-    END IF;
-
-    -- If assigned to is provided, verify they are a member of the team
+    -- Get membership ID if p_assigned_to is provided
     IF p_assigned_to IS NOT NULL THEN
-        SELECT user_id INTO v_assigned_user_id FROM team_memberships WHERE id = p_assigned_to;
-        IF v_assigned_user_id IS NULL OR NOT EXISTS (SELECT 1 FROM team_memberships WHERE id = p_assigned_to AND team_id = p_team_id) THEN
-            RAISE EXCEPTION 'Invalid assigned_to: Provided assigned_to ID is not a member of the specified team.';
+        SELECT id INTO v_membership_id
+        FROM team_memberships
+        WHERE user_id = p_assigned_to AND team_id = p_team_id;
+
+        IF v_membership_id IS NULL THEN
+            RAISE EXCEPTION 'Assigned user % is not a member of team %.', p_assigned_to, p_team_id;
         END IF;
     END IF;
 
-    INSERT INTO todos (created_by, assigned_to, team_id, title, description, status, due_date, updated_at)
-    VALUES (p_created_by, p_assigned_to, p_team_id, p_title, p_description, p_status, p_due_date, NOW());
+    INSERT INTO todos (created_by, assigned_to, team_id, title, description, status, due_date, created_at, updated_at)
+    VALUES (v_current_user_id, COALESCE(v_membership_id, NULL), p_team_id, p_title, p_description, p_status, p_due_date, NOW(), NOW());
 END;
 $$;
-
 
 CREATE OR REPLACE FUNCTION get_todo_by_id(p_todo_id INTEGER)
 RETURNS TABLE (
@@ -968,32 +963,21 @@ BEGIN
         RAISE EXCEPTION 'Todo with ID % not found or is deleted.', p_todo_id;
     END IF;
 
-    -- Access Check: Access Admin, Team Lead, TODO User of the team, or the user involved in the todo
     IF NOT current_user_is_access_admin()
         AND NOT current_user_has_local_role(v_todo_team_id, 'Team Lead')
-        AND NOT current_user_has_local_role(v_todo_team_id, 'TODO User')
-        AND NOT (v_current_user_id = v_todo_created_by_user_id) -- if current user created it
-        AND NOT (v_current_user_id = v_todo_assigned_to_user_id) THEN -- if todo is assigned to current user
+        AND NOT current_user_has_local_role(v_todo_team_id, 'Todo User')
+        AND NOT (v_current_user_id = v_todo_created_by_user_id)
+        AND NOT (v_current_user_id = v_todo_assigned_to_user_id) THEN
         RAISE EXCEPTION 'Permission denied: Not authorized to view this todo.';
     END IF;
 
     RETURN QUERY
-    SELECT
-        t.id,
-        t.created_by,
-        t.assigned_to,
-        t.team_id,
-        t.title,
-        t.description,
-        t.status AS status_id,
-        s.name AS status_name,
-        t.due_date,
-        t.is_deleted,
-        t.created_at,
-        t.updated_at,
-        t.completed_at
+    SELECT t.id, t.created_by, tm_assigned.user_id AS assigned_to, t.team_id, t.title, t.description,
+           t.status AS status_id, s.name AS status_name, t.due_date, t.is_deleted,
+           t.created_at, t.updated_at, t.completed_at
     FROM todos t
     JOIN statuses s ON t.status = s.id
+    LEFT JOIN team_memberships tm_assigned ON t.assigned_to = tm_assigned.id
     WHERE t.id = p_todo_id AND t.is_deleted = FALSE;
 END;
 $$;
@@ -1012,8 +996,7 @@ RETURNS TABLE (
     is_deleted BOOLEAN,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
-    completed_at TIMESTAMP
-)
+    completed_at TIMESTAMP)
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -1021,34 +1004,20 @@ DECLARE
 BEGIN
     PERFORM check_current_user_exists();
 
-    -- Only Access Administrator or the user themselves can view their todos
     IF v_current_user_id <> p_user_id AND NOT current_user_is_access_admin() THEN
         RAISE EXCEPTION 'Permission denied: Cannot view other users'' todos';
     END IF;
 
     RETURN QUERY
-    SELECT
-        t.id,
-        t.created_by,
-        t.assigned_to,
-        t.team_id,
-        t.title,
-        t.description,
-        t.status AS status_id,
-        s.name AS status_name,
-        t.due_date,
-        t.is_deleted,
-        t.created_at,
-        t.updated_at,
-        t.completed_at
+    SELECT t.id, t.created_by, tm.user_id AS assigned_to, t.team_id, t.title, t.description,
+           t.status AS status_id, s.name AS status_name, t.due_date, t.is_deleted,
+           t.created_at, t.updated_at, t.completed_at
     FROM todos t
     JOIN statuses s ON t.status = s.id
     LEFT JOIN team_memberships tm ON t.assigned_to = tm.id
-    WHERE (t.created_by = p_user_id OR tm.user_id = p_user_id)
-      AND t.is_deleted = FALSE;
+    WHERE (t.created_by = p_user_id OR tm.user_id = p_user_id) AND t.is_deleted = FALSE;
 END;
 $$;
-
 
 CREATE OR REPLACE FUNCTION get_member_todos(p_team_id INTEGER, p_user_id INTEGER)
 RETURNS TABLE (
@@ -1064,8 +1033,7 @@ RETURNS TABLE (
     is_deleted BOOLEAN,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
-    completed_at TIMESTAMP
-)
+    completed_at TIMESTAMP)
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -1073,38 +1041,24 @@ DECLARE
 BEGIN
     PERFORM check_current_user_exists();
 
-    -- Only Access Administrator, Team Lead of the team, TODO User of the team, or the user themselves can view their todos within this team.
     IF NOT current_user_is_access_admin()
         AND NOT current_user_has_local_role(p_team_id, 'Team Lead')
-        AND NOT current_user_has_local_role(p_team_id, 'TODO User')
+        AND NOT current_user_has_local_role(p_team_id, 'Todo User')
         AND NOT (v_current_user_id = p_user_id AND current_user_is_member_of_team(p_team_id)) THEN
         RAISE EXCEPTION 'Permission denied: Not authorized to view todos for this member in this team.';
     END IF;
 
     RETURN QUERY
-    SELECT
-        t.id,
-        t.created_by,
-        t.assigned_to,
-        t.team_id,
-        t.title,
-        t.description,
-        t.status AS status_id,
-        s.name AS status_name,
-        t.due_date,
-        t.is_deleted,
-        t.created_at,
-        t.updated_at,
-        t.completed_at
+    SELECT t.id, t.created_by, tm.user_id AS assigned_to, t.team_id, t.title, t.description,
+           t.status AS status_id, s.name AS status_name, t.due_date, t.is_deleted,
+           t.created_at, t.updated_at, t.completed_at
     FROM todos t
     JOIN statuses s ON t.status = s.id
     LEFT JOIN team_memberships tm ON t.assigned_to = tm.id
-    WHERE t.team_id = p_team_id
-      AND (t.created_by = p_user_id OR tm.user_id = p_user_id)
+    WHERE t.team_id = p_team_id AND (t.created_by = p_user_id OR tm.user_id = p_user_id)
       AND t.is_deleted = FALSE;
 END;
 $$;
-
 
 CREATE OR REPLACE FUNCTION get_team_todos(p_team_id INTEGER)
 RETURNS TABLE (
@@ -1128,33 +1082,21 @@ DECLARE
 BEGIN
     PERFORM check_current_user_exists();
 
-    -- Only Access Administrator or a member of the team can view team todos
     IF NOT current_user_is_access_admin()
         AND NOT current_user_is_member_of_team(p_team_id) THEN
         RAISE EXCEPTION 'Permission denied: Not authorized to view todos for this team.';
     END IF;
 
     RETURN QUERY
-    SELECT
-        t.id,
-        t.created_by,
-        t.assigned_to,
-        t.team_id,
-        t.title,
-        t.description,
-        t.status AS status_id,
-        s.name AS status_name,
-        t.due_date,
-        t.is_deleted,
-        t.created_at,
-        t.updated_at,
-        t.completed_at
+    SELECT t.id, t.created_by, tm.user_id AS assigned_to, t.team_id, t.title, t.description,
+           t.status AS status_id, s.name AS status_name, t.due_date, t.is_deleted,
+           t.created_at, t.updated_at, t.completed_at
     FROM todos t
     JOIN statuses s ON t.status = s.id
+    LEFT JOIN team_memberships tm ON t.assigned_to = tm.id
     WHERE t.team_id = p_team_id AND t.is_deleted = FALSE;
 END;
 $$;
-
 
 CREATE OR REPLACE PROCEDURE update_todo(
     p_todo_id INTEGER,
@@ -1163,14 +1105,14 @@ CREATE OR REPLACE PROCEDURE update_todo(
     p_description VARCHAR DEFAULT NULL,
     p_status INTEGER DEFAULT NULL,
     p_due_date DATE DEFAULT NULL,
-    p_completed_at TIMESTAMP DEFAULT NULL
-)
+    p_completed_at TIMESTAMP DEFAULT NULL)
 LANGUAGE plpgsql
 AS $$
 DECLARE
     v_current_user_id INT := get_current_user_id();
     v_todo_team_id INTEGER;
     v_old_completed_at TIMESTAMP;
+    v_membership_id INTEGER;
 BEGIN
     PERFORM check_current_user_exists();
 
@@ -1180,22 +1122,26 @@ BEGIN
         RAISE EXCEPTION 'Todo with ID % not found or is deleted.', p_todo_id;
     END IF;
 
-    -- Check if current user is Access Administrator, Team Lead, or TODO User for the team
     IF NOT current_user_is_access_admin()
         AND NOT current_user_has_local_role(v_todo_team_id, 'Team Lead')
-        AND NOT current_user_has_local_role(v_todo_team_id, 'TODO User') THEN
+        AND NOT current_user_has_local_role(v_todo_team_id, 'Todo User') THEN
         RAISE EXCEPTION 'Permission denied: Not authorized to update this todo.';
     END IF;
 
-    -- Specific check for TODO User: they cannot unset completed_at
-    IF current_user_has_local_role(v_todo_team_id, 'TODO User') AND
+    IF current_user_has_local_role(v_todo_team_id, 'Todo User') AND
        v_old_completed_at IS NOT NULL AND p_completed_at IS NULL THEN
         RAISE EXCEPTION 'Permission denied: TODO User cannot un-complete todos.';
     END IF;
 
+    IF p_assigned_to IS NOT NULL THEN
+        SELECT id INTO v_membership_id FROM team_memberships WHERE user_id = p_assigned_to AND team_id = v_todo_team_id;
+        IF v_membership_id IS NULL THEN
+            RAISE EXCEPTION 'Assigned user % is not a member of team %.', p_assigned_to, v_todo_team_id;
+        END IF;
+    END IF;
+
     UPDATE todos
-    SET
-        assigned_to = COALESCE(p_assigned_to, assigned_to),
+    SET assigned_to = COALESCE(v_membership_id, assigned_to),
         title = COALESCE(p_title, title),
         description = COALESCE(p_description, description),
         status = COALESCE(p_status, status),
@@ -1226,7 +1172,7 @@ BEGIN
     -- TODO User can only mark as is_deleted, which this procedure does.
     IF NOT current_user_is_access_admin()
         AND NOT current_user_has_local_role(v_todo_team_id, 'Team Lead')
-        AND NOT current_user_has_local_role(v_todo_team_id, 'TODO User') THEN
+        AND NOT current_user_has_local_role(v_todo_team_id, 'Todo User') THEN
         RAISE EXCEPTION 'Permission denied: Not authorized to mark this todo as deleted.';
     END IF;
 

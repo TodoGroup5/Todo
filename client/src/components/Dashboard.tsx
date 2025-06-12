@@ -14,13 +14,15 @@ const Dashboard: React.FC = () => {
   const hasRole = (role: string) => user.roles.includes(role);
 
   const renderRoleBasedContent = () => {
-    if (hasRole('access_admin')) {
+    if (hasRole('Access Admin')) {
       return <AdminPanel />;
-    } else if (hasRole('team_lead')) {
-      return <TeamLeadPanel />;
-    } else if (hasRole('todo_user')) {
-      return <UserPanel />;
+    } else if (hasRole('User')) {
+      return <TeamLeadPanel />
     }
+    //   return <TeamLeadPanel />;
+    // } else if (hasRole('todo_user')) {
+    //   return <UserPanel />;
+    // }
     return <div>No role assigned</div>;
   };
 

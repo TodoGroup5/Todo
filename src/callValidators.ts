@@ -69,13 +69,12 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
     create_status:              [["name", z_str_nonempty]],
     create_team:                [["name", z_str_nonempty], ["description", z_str]],
     create_todo: [
-        ["created_by", z_id],
         ["team_id", z_id],
         ["title", z_str_nonempty],
         ["description", z_str],
         ["status", z_id],
-        ["assigned_to", z_id_opt],
-        ["due_date", z_date_opt]
+        ["due_date", z_date_opt],
+        ["assigned_to", z_id_opt]
     ],
     create_user: [
         ["name", z_str_nonempty],

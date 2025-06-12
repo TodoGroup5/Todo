@@ -3,6 +3,6 @@ export function isProductionEnvironment(): boolean {
 }
 
 export function baseUrl(): string {
-  const isProduction = true;
+  const isProduction = false;
   return isProduction ? `${window.location.origin}/api` : 'http://localhost:3000/api';
 }

@@ -18,11 +18,12 @@ interface Todo {
 }
 
 interface TeamMember {
-  id: number;
-  user_id: number;
-  team_id: number;
-  user_name: string;
+  membership_id: number;
+  role_ids: number[];
+  role_names: number[];
   user_email: string;
+  user_id: number;
+  user_name: string;
 }
 
 interface Status {
@@ -35,8 +36,8 @@ interface Team {
   team_name: string;
   team_description: string;
   membership_id: number;
-  role_id: number;
-  role_name: string;
+  role_ids: number[];
+  role_names: string[];
 }
 
 const TeamLeadPanel: React.FC = () => {
@@ -58,8 +59,9 @@ const TeamLeadPanel: React.FC = () => {
 
   const isTeamLead = () => {
     if (!selectedTeam) return false;
-    const leadRoles = ['team lead'];
-    return leadRoles.includes(selectedTeam.role_name.toLowerCase());
+    const leadRoles = ['Team Lead'];
+    const role = selectedTeam.role_names[0];
+    return role ? leadRoles.includes(role) : false;
   };
 
   const fetchUserTeams = useCallback(async () => {
@@ -70,13 +72,11 @@ const TeamLeadPanel: React.FC = () => {
       
       if (response.error) { 
         throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); 
-        return; 
       }
       if (response.data == null) return;
 
       if (response.data.status === 'failed') { 
         throw new Error("[DATA]: " + response.data.error); 
-        return; 
       }
 
       const teamsData = response.data.data ?? [];
@@ -113,10 +113,6 @@ const TeamLeadPanel: React.FC = () => {
       if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
 
       let todosData = response.data.data ?? [];
-      
-      if (!isTeamLead()) {
-        todosData = todosData.filter(todo => todo.assigned_to === userId || todo.created_by === userId);
-      }
       
       setTodos(todosData);
     }
@@ -185,7 +181,6 @@ const TeamLeadPanel: React.FC = () => {
 
     try {
       const todoData = {
-        created_by: userId,
         team_id: selectedTeam.team_id, 
         title: newTodo.title,
         description: newTodo.description,
@@ -352,7 +347,7 @@ const TeamLeadPanel: React.FC = () => {
               <option value="">Choose a team...</option>
               {teams.map(team => (
                 <option key={team.team_id} value={team.team_id}>
-                  {team.team_name} ({team.role_name})
+                  {team.team_name} ({team.role_names[0]})
                 </option>
               ))}
             </select>
@@ -363,7 +358,7 @@ const TeamLeadPanel: React.FC = () => {
             <div className="current-team-info">
               <h3>{selectedTeam.team_name}</h3>
               <p>{selectedTeam.team_description}</p>
-              <span className="role-badge">Your Role: {selectedTeam.role_name}</span>
+              <span className="role-badge">Your Role: {selectedTeam.role_names[0]}</span>
               {!isTeamLead() && (
                 <div className="role-notice">
                   <small>You can only view and manage your own todos in this team.</small>
@@ -406,7 +401,7 @@ const TeamLeadPanel: React.FC = () => {
                 >
                   <option value="">Select team member</option>
                   {teamMembers.map(member => (
-                    <option key={member.id} value={member.user_id}>{member.user_name}</option>
+                    <option key={member.user_id} value={member.user_id}>{member.user_name}</option>
                   ))}
                 </select>
               )}

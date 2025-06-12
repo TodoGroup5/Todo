@@ -1,11 +1,18 @@
 import React, { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { baseUrl } from '../utility/deployment';
+import { CrudService } from '../api/crudService';
 
 export interface User {
   id: string;
   username: string;
   roles: string[];
+}
+
+interface GlobalRole {
+  user_id: number;
+  role_id: number;
+  role_name: string;
 }
 
 interface AuthContextType {
@@ -51,15 +58,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
       
       if (response.ok) {
-        const data = await response.json();
-        setUser({
-          id: data.data.user_id,
-          username: data.data.email,
-          roles: ['access_admin']
-        });
-        setPendingAuth(null);
+        try {
+          const data = await response.json();
+
+          const globalRoleResponse = await CrudService.read<GlobalRole[]>(`/user/${data.data.user_id}/global-roles`);
+          if (globalRoleResponse.error) throw new Error("[FETCH]: " + globalRoleResponse.error + "\n" + globalRoleResponse.message);
+          if (!globalRoleResponse.data || globalRoleResponse.data.status === 'failed') {
+            throw new Error("[DATA]: " + (globalRoleResponse.data && 'error' in globalRoleResponse.data ? globalRoleResponse.data.error : 'Unknown error'));
+          }
+
+          setUser({
+            id: data.data.user_id,
+            username: data.data.email,
+            roles: [globalRoleResponse.data.data[0].role_name]
+          });
+
+          console.log(data.data.email, globalRoleResponse.data.data[0].role_name);
+
+        } catch (err) {
+          console.log("Failed to fetch global roles", err);
+        }
         return true;
       }
+
+      setPendingAuth(null);
       return false;
     } catch (error) {
       console.log(error)

@@ -47,6 +47,9 @@ const AdminPanel: React.FC = () => {
       if (!response.data || response.data.status === 'failed') {
         throw new Error("[DATA]: " + (response.data && 'error' in response.data ? response.data.error : 'Unknown error'));
       }
+
+      console.log("USERS", response.data);
+
       const usersData: User[] = Array.isArray(response.data?.data) ? response.data.data : [];
       const usersWithRoles: UserWithRoles[] = [];
 
