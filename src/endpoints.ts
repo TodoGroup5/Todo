@@ -6,6 +6,8 @@ import { validatePassword, z_email, z_id, z_str, z_str_nonempty, z_str_opt } fro
 import { AuthenticatedRequest, authenticateToken, comparePassHash, genJWT, hashPassword, JwtData, verifyJWT } from './auth.js';
 import { isProductionEnvironment } from './lib/deployment.js';
 import { JwtPayload, verify } from 'jsonwebtoken';
+import speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
 
 //==================== Setup DB connection ====================//
 const router = Router();
@@ -14,7 +16,7 @@ const dbConfig: any = {
     host: process.env.DB_HOST || 'localhost',
     port: Number(process.env.DB_PORT || '5432'),
     user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASS || 'postgres',
+    password: process.env.DB_PASS || 'password',
 }
 
 if (isProductionEnvironment()) {
@@ -134,7 +136,7 @@ function callSuccessWithData<S>(res: JSONResult<unknown[], unknown>): res is { s
 router.post('/signup', async (req: Request, res: Response) => {
     //----- Validate request params -----//
     const expected: ParamValidator[] = [ ["name", z_str_nonempty], ["email", z_email], ["password", z_str_nonempty] ];
-    const parseRes: ParseParamsResult = parseParams({ params: req.body ?? {} }, expected);
+    const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
     if (parseRes.status === 'failed') {
         sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
         return;
@@ -146,21 +148,28 @@ router.post('/signup', async (req: Request, res: Response) => {
         sendResponse(res, { status: 'failed', error: 'passwordInsecure' }, 400);
         return;
     }
-
+    
     //----- Create user -----//
     const password_hash = hashPassword(password);
-
-    const createRes = await callDB(dbPool, -1, { type: 'func', call: 'create_user', params: { name, email, password_hash } });
+    // Generate 2FA secret immediately upon user signup
+    const secret = speakeasy.generateSecret({
+        name: `TodoApp-Group-5`,
+        issuer: 'TodoApp',
+        length: 20
+    });
+    const two_fa_secret = secret.base32;
+    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!);
+    
+    const createRes = await callDB(dbPool, -1, { type: 'func', call: 'create_user', params: { name, email, password_hash, two_fa_secret} });
     if(!callSuccessWithData<Post_UserCreate>(createRes)) {
         sendResponse(res, { status: 'failed', error: 'userCreateFailed', data: createRes }, 400);
         return;
     }
-
     const { user_id } = createRes.data[0];
 
     //----- Return -----//
     setJWT(res, user_id, email);
-    sendResponse(res, { status: 'success', data: { user_id, email } });
+    sendResponse(res, { status: 'success', data: { user_id, email, qrCodeUrl } });
 });
 
 router.post('/login', async (req: Request, res: Response) => {
@@ -180,16 +189,47 @@ router.post('/login', async (req: Request, res: Response) => {
         return;
     }
 
-    const { id: user_id, password_hash } = userRes.data[0];
-
-    console.log(password, password_hash);
-
+    const { id: user_id, password_hash, two_fa_secret } = userRes.data[0];
+    // Generate QR code using the user's existing 2FA secret
+    const otpauthUrl = speakeasy.otpauthURL({
+        secret: two_fa_secret,
+        label: `TodoApp-Group-5`,
+        issuer: 'TodoApp',
+        encoding: 'base32'
+    });
+    
+    const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
     //----- Check hashes match -----//
-    if (!comparePassHash(password, password_hash)) {
+    const isValid = comparePassHash(password, password_hash);
+    if (!isValid) {
         sendResponse(res, { status: 'failed', error: 'incorrectPassword' }, 401);
         return;
     }
+    sendResponse(res, { status: 'success', data: { user_id, email, qrCodeUrl } });
+});
 
+router.post('/login/verify', async (req: Request, res: Response) => {
+    const { email, twoFactorToken } = req.body;
+
+    //find user
+    const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets_by_email', params: { email } });
+    if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
+        sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
+        return;
+    }
+
+    const { id: user_id, two_fa_secret } = userRes.data[0];
+    // Verify the 2FA token
+    const verified = speakeasy.totp.verify({
+        secret: two_fa_secret,
+        encoding: 'base32',
+        token: twoFactorToken,
+        window: 2
+    });
+    
+    if (!verified) {
+        return sendResponse(res, { status: 'failed', error: 'incorrect 2fa code' }, 401);
+    }
     //----- Return -----//
     setJWT(res, user_id, email);
     sendResponse(res, { status: 'success', data: { user_id, email } });
@@ -246,12 +286,18 @@ router.post('/change-password', async (req: Request, res: Response) => {
     sendResponse(res, { status: "success" });
 });
 
-// Example protected route
-router.get('/profile', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
-    res.json({
-        message: 'Welcome!',
-        user: (req as AuthenticatedRequest).user,
-    });
+// Returns { isAuthenticated: true } if the user has a valid JWT
+router.get('/auth', async (req: Request, res: Response) => {
+    type AuthResponse = { isAuthenticated: boolean };
+    try {
+        //----- Check JWT -----//
+        const token = checkJWTAuth(req);
+        sendResponse<AuthResponse, AuthResponse>(res, { status: 'success', data: { isAuthenticated: (token != null) } }, 200);
+
+    } catch (err) { // Catch-all
+        console.error(err);
+        sendResponse(res, { status: 'failed', error: 'internalServerError' }, 500);
+    }
 });
 
 
@@ -267,17 +313,17 @@ const easyEndpoints: EasyEndpointMap = {
     'DELETE /user/:user_id':       ['proc', 'delete_user', paramsToNumber()],
 
     //--------------- Teams ---------------//
-    'POST   /team/create':            ['proc', 'create_team'],
+    'POST   /team/create':            ['func', 'create_team'],
     'GET    /team/all':               ['func', 'get_all_teams'],
     'GET    /team/:team_id':          ['func', 'get_team_by_id', paramsToNumber()],
     'PUT    /team/:team_id':          ['proc', 'update_team', paramsToNumber()],
     'DELETE /team/:team_id':          ['proc', 'delete_team', paramsToNumber()],
 
     //--------------- Membership ---------------//
-    'POST   /team-membership/add':                         ['proc', 'add_team_member'],
+    'POST   /team-membership/add':                         ['func', 'add_user_to_team', paramsToNumber()],
     'GET    /team-membership/user/:user_id/team/:team_id': ['func', 'get_team_membership', paramsToNumber()],
     'GET    /team/:team_id/members':                       ['func', 'get_team_members', paramsToNumber()],
-    'DELETE /team-membership/user/:user_id/team/:team_id': ['proc', 'remove_team_member', paramsToNumber()],
+    'DELETE /team-membership/:member_id': ['proc', 'remove_user_from_team', paramsToNumber()],
 
     //--------------- Statuses ---------------//
     'POST   /status/create':     ['proc', 'create_status'],

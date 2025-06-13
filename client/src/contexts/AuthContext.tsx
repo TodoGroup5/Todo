@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
+import { baseUrl } from '../utility/deployment';
+import { CrudService } from '../api/crudService';
 
 export interface User {
   id: string;
@@ -7,16 +9,23 @@ export interface User {
   roles: string[];
 }
 
+interface GlobalRole {
+  user_id: number;
+  role_id: number;
+  role_name: string;
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
   verify2FA: (code: string) => Promise<boolean>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const url = baseUrl();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -28,99 +37,75 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [pendingAuth, setPendingAuth] = useState<{username: string, password: string} | null>(null);
+  const [pendingAuth, setPendingAuth] = useState<{email: string, password: string} | null>(null);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
-    setPendingAuth({ username, password });
+  const login = async (email: string, password: string): Promise<boolean> => {
+    setPendingAuth({ email, password });
     return true;
-    
-    try {
-      // Simulate API call
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-
-      if (response.ok) {
-        setPendingAuth({ username, password });
-        return true;
-      }
-      return false;
-    } catch (error) {
-      // Simulate successful login for demo
-      setPendingAuth({ username, password });
-      return true;
-    }
   };
 
   const verify2FA = async (code: string): Promise<boolean> => {
-    if (!pendingAuth) return false;
-
-        const mockUser = getMockUser(pendingAuth.username);
-      setUser(mockUser);
-      setToken('mock-jwt-token-' + Date.now());
-      setPendingAuth(null);
-      return true;
-
     try {
-      // Simulate API call
-      const response = await fetch('/api/verify-2fa', {
+      const response = await fetch(`${url}/login/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          username: pendingAuth.username, 
-          password: pendingAuth.password, 
-          code 
+          email: pendingAuth.email, 
+          twoFactorToken: code 
         })
       });
 
+      // setUser({
+      //   id: '1',
+      //   username: "alice@example.com",
+      //   roles: ["Access Admin"]
+      // });
+
+      // return true;
+      
       if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-        setToken(data.token);
-        setPendingAuth(null);
+        try {
+          const data = await response.json();
+
+          const globalRoleResponse = await CrudService.read<GlobalRole[]>(`/user/${data.data.user_id}/global-roles`);
+          if (globalRoleResponse.error) throw new Error("[FETCH]: " + globalRoleResponse.error + "\n" + globalRoleResponse.message);
+          if (!globalRoleResponse.data || globalRoleResponse.data.status === 'failed') {
+            throw new Error("[DATA]: " + (globalRoleResponse.data && 'error' in globalRoleResponse.data ? globalRoleResponse.data.error : 'Unknown error'));
+          }
+
+          setUser({
+            id: data.data.user_id,
+            username: data.data.email,
+            roles: [globalRoleResponse.data.data?.[0]?.role_name ?? "User"]
+          });
+
+          console.log(data.data.email, globalRoleResponse.data.data[0].role_name);
+
+        } catch (err) {
+          console.log("Failed to fetch global roles", err);
+        }
         return true;
       }
+
+      setPendingAuth(null);
       return false;
     } catch (error) {
-      // Simulate successful 2FA for demo
-      const mockUser = getMockUser(pendingAuth.username);
-      setUser(mockUser);
-      setToken('mock-jwt-token-' + Date.now());
-      setPendingAuth(null);
-      return true;
+      console.log(error)
     }
   };
 
   const logout = () => {
     setUser(null);
-    setToken(null);
     setPendingAuth(null);
   };
 
-  const getMockUser = (username: string): User => {
-    const userRoles: Record<string, string[]> = {
-      'greg': ['access_admin'],
-      'dino': ['team_lead'],
-      'cindi': ['todo_user']
-    };
-
-    return {
-      id: '1',
-      username,
-      roles: userRoles[username] || ['todo_user']
-    };
-  }; 
-
-  const isAuthenticated = !!user && !!token;
+  const isAuthenticated = true;
 
   return (
     <AuthContext.Provider value={{
       user,
-      token,
       isAuthenticated,
+      token: "",
       login,
       verify2FA,
       logout

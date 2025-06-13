@@ -16,14 +16,14 @@ export type JSONResult<S = undefined, F = undefined> = (
 );
 
 export type CallName =
-  "add_team_member" | "assign_global_role" | "assign_local_role" |
+  "add_user_to_team" | "assign_global_role" | "assign_local_role" |
   "create_global_role" | "create_local_role" | "create_status" | "create_team" | "create_todo" | "create_user" |
   "delete_global_role" | "delete_local_role" | "delete_status" | "delete_team" | "delete_todo" | "delete_user" |
   "get_all_global_roles" | "get_global_role_by_id" | "get_global_role_by_name" | "get_all_local_roles" | "get_local_role_by_id" |
   "get_local_role_by_name" | "get_member_local_roles" | "get_all_statuses" | "get_status_by_id" | "get_status_by_name" |
   "get_team_by_id" | "get_team_members" | "get_team_membership" | "get_team_todos" | "get_todo_by_id" | "get_all_users" | "get_all_teams" |
   "get_user_by_email" | "get_user_by_id" | "get_user_global_roles" | "get_user_todos" | "get_member_todos" | "get_user_teams" | "get_user_secrets" | "get_user_secrets_by_email" |
-  "remove_team_member" | "revoke_global_role" | "revoke_local_role" |
+  "remove_user_from_team" | "revoke_global_role" | "revoke_local_role" |
   "update_global_role" | "update_local_role" | "update_status" | "update_team" | "update_todo" | "update_user";
 
 // API-side interface for calling DB procs
@@ -156,6 +156,7 @@ export async function callDB (
   call: CallData,
   expected: ParamValidator[] = VALIDATOR_SETS[call.call]
 ): Promise<JSONResult<TableResult, InvalidList>> {
+
 
   // Parse into raw params
   const rawParams = parseParams(call, expected);

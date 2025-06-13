@@ -66,8 +66,9 @@ jobs:
           echo "POSTGRES_PASS=$(aws ssm get-parameter --name '/db_config/db_password' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
           echo "POSTGRES_HOST=$(aws ssm get-parameter --name '/db_config/db_host' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
           echo "POSTGRES_DBNAME=$(aws ssm get-parameter --name '/db_config/db_name' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
-     
-
+          echo "JWT_SECRET=$(aws ssm get-parameter --name 'jwt_secret' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
+          echo "PASSWORD_PEPPER=$(aws ssm get-parameter --name 'password_pepper' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
+          echo "REFRESH_TOKEN_SECRET=$(aws ssm get-parameter --name 'refresh_token_secret' --query 'Parameter.Value' --output text)" >> $GITHUB_ENV
       # === Install Dependencies ===
       - name: Install Root Dependencies
         run: npm install
@@ -109,7 +110,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: POSTGRES_USER,POSTGRES_PASS,POSTGRES_HOST,POSTGRES_DBNAME
+          envs: POSTGRES_USER,POSTGRES_PASS,POSTGRES_HOST,POSTGRES_DBNAME,JWT_SECRET,PASSWORD_PEPPER,REFRESH_TOKEN_SECRET
           port: 22
           script: |
             set -e
@@ -136,9 +137,10 @@ jobs:
             DB_HOST=$POSTGRES_HOST
             DB_NAME=$POSTGRES_DBNAME
             ENV=production
-            PASSWORD_PEPPER=hash
+            PASSWORD_PEPPER=$PASSWORD_PEPPER
             PASSWORD_SALT_ROUNDS=10
-            JWT_SECRET=jwtsecret
+            JWT_SECRET=$JWT_SECRET
+            REFRESH_TOKEN_SECRET=$REFRESH_TOKEN_SECRET
             PORT=3000
             EOF
 
@@ -177,4 +179,4 @@ jobs:
                        
       - name: Run Flyway Migrations
         run: |
-          docker run --rm --volume ${{ github.workspace }}/migrations:/flyway/sql:ro redgate/flyway -url="jdbc:postgresql://$POSTGRES_HOST/tododb" -user="$POSTGRES_USER" -password="$POSTGRES_PASS" migrate
+          docker run --rm --volume ${{ github.workspace }}/migrations/live:/flyway/sql:ro redgate/flyway -url="jdbc:postgresql://$POSTGRES_HOST/tododb" -user="$POSTGRES_USER" -password="$POSTGRES_PASS" migrate

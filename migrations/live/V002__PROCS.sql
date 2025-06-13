@@ -13,10 +13,10 @@
 --  - delete_team
 
 -- Members:
---  - add_team_member
+--  - add_user_to_team
 --  - get_team_membership
 --  - get_team_members
---  - remove_team_member
+--  - remove_user_from_team
 
 -- Statuses:
 --  - create_status
@@ -169,7 +169,7 @@ RETURNS BOOLEAN
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    RETURN current_user_has_global_role('Access Administrator');
+    RETURN current_user_has_global_role('Access Admin');
 END;
 $$;
 
@@ -180,6 +180,24 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     RETURN current_user_has_global_role('User');
+END;
+$$;
+
+-- Check if current user is a member of a given team
+CREATE OR REPLACE FUNCTION current_user_is_member_of_team(p_team_id INTEGER)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+    v_count INT;
+BEGIN
+    PERFORM check_current_user_exists();
+    SELECT COUNT(*)
+    INTO v_count
+    FROM team_memberships tm
+    WHERE tm.user_id = v_current_user_id AND tm.team_id = p_team_id;
+    RETURN v_count > 0;
 END;
 $$;
 
@@ -195,11 +213,15 @@ CREATE OR REPLACE FUNCTION create_user(
 RETURNS TABLE(user_id INT)
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
 BEGIN
-    -- Only Access Administrator can create users
-    -- IF NOT current_user_is_access_admin() THEN
-    --     RAISE EXCEPTION 'Permission denied: Only Access Administrator can create users';
-    -- END IF;
+    -- PERFORM check_current_user_exists();
+
+    -- Only System & Access Administrator can create users
+    IF v_current_user_id <> -1 AND NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can create users';
+    END IF;
 
     RETURN QUERY
     INSERT INTO users (name, email, password_hash, two_fa_secret)
@@ -237,7 +259,7 @@ AS $$
 DECLARE
     v_current_user_id INT := get_current_user_id();
 BEGIN
-    -- Only System can view user secrets
+    -- Only System can view user secrets. -1 is conventionally used for system
     IF v_current_user_id <> -1 THEN
         RAISE EXCEPTION 'Permission denied: Cannot view users'' secret info';
     END IF;
@@ -256,7 +278,7 @@ AS $$
 DECLARE
     v_current_user_id INT := get_current_user_id();
 BEGIN
-    -- Only System can view user secrets
+    -- Only System can view user secrets. -1 is conventionally used for system
     IF v_current_user_id <> -1 THEN
         RAISE EXCEPTION 'Permission denied: Cannot view users'' secret info';
     END IF;
@@ -283,11 +305,11 @@ DECLARE
 BEGIN
     PERFORM check_current_user_exists();
 
-    -- Normal users can only view their own user info unless they have local roles for other teams
-    IF v_current_user_id <> p_user_id
-       AND NOT current_user_is_access_admin() THEN
-        RAISE EXCEPTION 'Permission denied: Cannot view other users'' details';
-    END IF;
+    -- Normal users can only view their own user info unless they have local roles for other teams, or are Access Admin
+    -- IF v_current_user_id <> p_user_id
+    --     AND NOT current_user_is_access_admin() THEN
+    --     RAISE EXCEPTION 'Permission denied: Cannot view other users'' details';
+    -- END IF;
 
     RETURN QUERY
     SELECT
@@ -320,14 +342,14 @@ BEGIN
     PERFORM check_current_user_exists();
 
     -- Only Access Administrator or the user himself can get details by email
-    IF NOT current_user_is_access_admin() THEN
-        IF NOT EXISTS (
-            SELECT 1 FROM users
-            WHERE id = v_current_user_id AND email = p_email
-        ) THEN
-            RAISE EXCEPTION 'Permission denied: Cannot view other users by email';
-        END IF;
-    END IF;
+    -- IF NOT current_user_is_access_admin() THEN
+    --     IF NOT EXISTS (
+    --         SELECT 1 FROM users
+    --         WHERE id = v_current_user_id AND email = p_email
+    --     ) THEN
+    --         RAISE EXCEPTION 'Permission denied: Cannot view other users by email';
+    --     END IF;
+    -- END IF;
 
     RETURN QUERY
     SELECT
@@ -362,7 +384,7 @@ BEGIN
 
     -- User can only see their own team memberships, or Access Administrator can see all
     IF v_current_user_id <> p_user_id
-       AND NOT current_user_is_access_admin() THEN
+        AND NOT current_user_is_access_admin() THEN
         RAISE EXCEPTION 'Permission denied: Cannot view other users'' team memberships';
     END IF;
 
@@ -394,36 +416,91 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     v_current_user_id INT := get_current_user_id();
+    v_is_admin BOOLEAN := current_user_is_access_admin();
 BEGIN
-    PERFORM check_current_user_exists();
+    -- Skip existence check if called by the System user
+    IF v_current_user_id <> -1 THEN
+        PERFORM check_current_user_exists();
+    END IF;
 
-    -- Only Access Administrator can update other users
-    -- Normal user can update only own details except password_hash and two_fa_secret
-    IF v_current_user_id <> p_user_id THEN
-        IF NOT current_user_is_access_admin() THEN
+    -- Permission checks
+    IF v_current_user_id = -1 THEN
+        -- System user: full access, no restrictions
+        NULL;
+
+    ELSIF v_current_user_id <> p_user_id THEN
+        -- User updating someone else
+        IF NOT v_is_admin THEN
             RAISE EXCEPTION 'Permission denied: Cannot update other users'' details';
         END IF;
+
     ELSE
-        -- If current user updating self, deny updating password_hash and 2FA here for normal users
+        -- User updating self
         IF (p_password_hash IS NOT NULL OR p_two_fa_secret IS NOT NULL)
-           AND NOT current_user_is_access_admin() THEN
+            AND NOT v_is_admin THEN
             RAISE EXCEPTION 'Permission denied: Cannot update password or 2FA secret';
         END IF;
     END IF;
 
+    -- Apply the update
     UPDATE users
     SET
         name = COALESCE(p_name, name),
         email = COALESCE(p_email, email),
-        password_hash = CASE WHEN current_user_is_access_admin()
-                             THEN COALESCE(p_password_hash, password_hash)
-                             ELSE password_hash END,
-        two_fa_secret = CASE WHEN current_user_is_access_admin()
-                             THEN COALESCE(p_two_fa_secret, two_fa_secret)
-                             ELSE two_fa_secret END
+        password_hash = CASE
+            WHEN v_current_user_id = -1 OR v_is_admin THEN COALESCE(p_password_hash, password_hash)
+            ELSE password_hash
+        END,
+        two_fa_secret = CASE
+            WHEN v_current_user_id = -1 OR v_is_admin THEN COALESCE(p_two_fa_secret, two_fa_secret)
+            ELSE two_fa_secret
+        END
     WHERE id = p_user_id;
 END;
 $$;
+
+
+-- CREATE OR REPLACE PROCEDURE update_user(
+--     p_user_id INTEGER,
+--     p_name VARCHAR DEFAULT NULL,
+--     p_email VARCHAR DEFAULT NULL,
+--     p_password_hash VARCHAR DEFAULT NULL,
+--     p_two_fa_secret VARCHAR DEFAULT NULL
+-- )
+-- LANGUAGE plpgsql
+-- AS $$
+-- DECLARE
+--     v_current_user_id INT := get_current_user_id();
+-- BEGIN
+--     -- PERFORM check_current_user_exists();
+
+--     -- Only Access Administrator can update other users
+--     -- Normal user can update only own details except password_hash and two_fa_secret
+--     IF v_current_user_id <> p_user_id AND v_current_user_id <> -1 THEN
+--         IF NOT current_user_is_access_admin() THEN
+--             RAISE EXCEPTION 'Permission denied: Cannot update other users'' details';
+--         END IF;
+--     ELSE
+--         -- If current user updating self, deny updating password_hash and 2FA here for normal users
+--         IF (p_password_hash IS NOT NULL OR p_two_fa_secret IS NOT NULL)
+--             AND NOT current_user_is_access_admin() THEN
+--             RAISE EXCEPTION 'Permission denied: Cannot update password or 2FA secret';
+--         END IF;
+--     END IF;
+
+--     UPDATE users
+--     SET
+--         name = COALESCE(p_name, name),
+--         email = COALESCE(p_email, email),
+--         password_hash = CASE WHEN current_user_is_access_admin()
+--                                  THEN COALESCE(p_password_hash, password_hash)
+--                                  ELSE password_hash END,
+--         two_fa_secret = CASE WHEN current_user_is_access_admin()
+--                                  THEN COALESCE(p_two_fa_secret, two_fa_secret)
+--                                  ELSE two_fa_secret END
+--     WHERE id = p_user_id;
+-- END;
+-- $$;
 
 CREATE OR REPLACE PROCEDURE delete_user(p_user_id INTEGER)
 LANGUAGE plpgsql
@@ -453,8 +530,11 @@ AS $$
 BEGIN
     PERFORM check_current_user_exists();
 
-    -- Only Access Administrator or normal users can create teams?
-    -- Assuming normal users can create teams (no restrictions specified)
+    -- Only Access Administrator can create teams
+    IF NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can create teams';
+    END IF;
+
     RETURN QUERY
     INSERT INTO teams (name, description)
     VALUES (p_name, p_description)
@@ -473,7 +553,7 @@ AS $$
 BEGIN
     PERFORM check_current_user_exists();
 
-    RETURN QUERY SELECT id, name, description FROM teams;
+    RETURN QUERY SELECT t.id, t.name, t.description FROM teams t;
 END;
 $$;
 
@@ -505,10 +585,10 @@ AS $$
 BEGIN
     PERFORM check_current_user_exists();
 
-    -- Only Access Administrator or team members with Admin role can update
+    -- Only Access Administrator or team Lead can update
     IF NOT current_user_is_access_admin()
-       AND NOT current_user_has_local_role(p_team_id, 'Admin') THEN
-        RAISE EXCEPTION 'Permission denied: Only Access Administrator or team Admin can update team';
+        AND NOT current_user_has_local_role(p_team_id, 'Team Lead') THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator or Team Lead can update team';
     END IF;
 
     UPDATE teams
@@ -525,10 +605,10 @@ AS $$
 BEGIN
     PERFORM check_current_user_exists();
 
-    -- Only Access Administrator or team Admin can delete
+    -- Only Access Administrator or team Lead can delete
     IF NOT current_user_is_access_admin()
-       AND NOT current_user_has_local_role(p_team_id, 'Admin') THEN
-        RAISE EXCEPTION 'Permission denied: Only Access Administrator or team Admin can delete team';
+        AND NOT current_user_has_local_role(p_team_id, 'Team Lead') THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator or Team Lead can delete team';
     END IF;
 
     DELETE FROM teams WHERE id = p_team_id;
@@ -548,10 +628,10 @@ AS $$
 BEGIN
     PERFORM check_current_user_exists();
 
-    -- Only Access Administrator or team Admin can add members
+    -- Only Access Administrator or team Lead can add members
     IF NOT current_user_is_access_admin()
-       AND NOT current_user_has_local_role(p_team_id, 'Admin') THEN
-        RAISE EXCEPTION 'Permission denied: Only Access Administrator or team Admin can add members';
+        AND NOT current_user_has_local_role(p_team_id, 'Team Lead') THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator or Team Lead can add members';
     END IF;
 
     RETURN QUERY
@@ -560,6 +640,57 @@ BEGIN
     RETURNING id;
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION get_team_membership(
+    p_membership_id INTEGER
+)
+RETURNS TABLE (
+    id INTEGER,
+    user_id INTEGER,
+    team_id INTEGER,
+    role_ids INTEGER[],
+    role_names VARCHAR[]
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+    v_membership_user_id INTEGER;
+    v_membership_team_id INTEGER;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT tm.user_id, tm.team_id
+    INTO v_membership_user_id, v_membership_team_id
+    FROM team_memberships tm
+    WHERE tm.id = p_membership_id;
+
+    IF v_membership_user_id IS NULL THEN
+        RAISE EXCEPTION 'Team membership ID % not found', p_membership_id;
+    END IF;
+
+    -- Only Access Administrator, Team Lead of the team, or the user himself can view their own membership
+    IF NOT current_user_is_access_admin()
+        AND NOT current_user_has_local_role(v_membership_team_id, 'Team Lead')
+        AND NOT (v_current_user_id = v_membership_user_id) THEN
+        RAISE EXCEPTION 'Permission denied: Not authorized to view this team membership.';
+    END IF;
+
+    RETURN QUERY
+    SELECT
+        tm.id,
+        tm.user_id,
+        tm.team_id,
+        ARRAY_AGG(mlr.role_id ORDER BY mlr.role_id DESC) AS role_ids,
+        ARRAY_AGG(lr.name ORDER BY mlr.role_id DESC) AS role_names
+    FROM team_memberships tm
+    LEFT JOIN member_local_roles mlr ON tm.id = mlr.member_id
+    LEFT JOIN local_roles lr ON mlr.role_id = lr.id
+    WHERE tm.id = p_membership_id
+    GROUP BY tm.id, tm.user_id, tm.team_id;
+END;
+$$;
+
 
 CREATE OR REPLACE PROCEDURE remove_user_from_team(
     p_membership_id INTEGER
@@ -576,10 +707,10 @@ BEGIN
         RAISE EXCEPTION 'Team membership not found';
     END IF;
 
-    -- Only Access Administrator or team Admin can remove members
+    -- Only Access Administrator or team Lead can remove members
     IF NOT current_user_is_access_admin()
-       AND NOT current_user_has_local_role(v_team_id, 'Admin') THEN
-        RAISE EXCEPTION 'Permission denied: Only Access Administrator or team Admin can remove members';
+        AND NOT current_user_has_local_role(v_team_id, 'Team Lead') THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator or Team Lead can remove members';
     END IF;
 
     DELETE FROM team_memberships WHERE id = p_membership_id;
@@ -602,17 +733,9 @@ DECLARE
 BEGIN
     PERFORM check_current_user_exists();
 
-    -- Only Access Administrator or team members can view members list
+    -- Only Access Administrator or a member of the team can view members list
     IF NOT current_user_is_access_admin()
-       AND NOT EXISTS (
-           SELECT 1
-           FROM team_memberships tm
-           JOIN member_local_roles mlr ON tm.id = mlr.member_id
-           JOIN local_roles lr ON mlr.role_id = lr.id
-           WHERE tm.user_id = v_current_user_id
-             AND tm.team_id = p_team_id
-             AND lr.name IN ('Admin','Member')
-       ) THEN
+        AND NOT current_user_is_member_of_team(p_team_id) THEN
         RAISE EXCEPTION 'Permission denied: Only Access Administrator or team members can view team members';
     END IF;
 
@@ -650,10 +773,10 @@ BEGIN
         RAISE EXCEPTION 'Team membership not found';
     END IF;
 
-    -- Only Access Administrator or team Admin can update roles
+    -- Only Access Administrator or team Lead can update roles
     IF NOT current_user_is_access_admin()
-       AND NOT current_user_has_local_role(v_team_id, 'Admin') THEN
-        RAISE EXCEPTION 'Permission denied: Only Access Administrator or team Admin can update member roles';
+        AND NOT current_user_has_local_role(v_team_id, 'Team Lead') THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator or Team Lead can update member roles';
     END IF;
 
     DELETE FROM member_local_roles WHERE member_id = p_membership_id;
@@ -662,5 +785,733 @@ BEGIN
         INSERT INTO member_local_roles (member_id, role_id)
         SELECT p_membership_id, unnest(p_role_ids);
     END IF;
+END;
+$$;
+
+
+---------- Statuses Procedures ----------
+
+CREATE OR REPLACE PROCEDURE create_status(p_name VARCHAR)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Only Access Administrator can create statuses
+    IF NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can create statuses';
+    END IF;
+
+    INSERT INTO statuses (name) VALUES (p_name);
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION get_all_statuses()
+RETURNS SETOF statuses
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    RETURN QUERY
+    SELECT * FROM statuses;
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION get_status_by_id(p_status_id INTEGER)
+RETURNS SETOF statuses
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result statuses%ROWTYPE;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT * INTO result FROM statuses WHERE id = p_status_id;
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+    RETURN NEXT result;
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION get_status_by_name(p_name VARCHAR)
+RETURNS SETOF statuses
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result statuses%ROWTYPE;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT * INTO result FROM statuses WHERE name = p_name;
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+    RETURN NEXT result;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE update_status(p_status_id INTEGER, p_name VARCHAR)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Only Access Administrator can update statuses
+    IF NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can update statuses';
+    END IF;
+
+    UPDATE statuses SET name = p_name WHERE id = p_status_id;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE delete_status(p_status_id INTEGER)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Only Access Administrator can delete statuses
+    IF NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can delete statuses';
+    END IF;
+
+    DELETE FROM statuses WHERE id = p_status_id;
+END;
+$$;
+
+
+---------- Todos Procedures ----------
+
+
+CREATE OR REPLACE PROCEDURE create_todo(
+    p_team_id INTEGER,
+    p_title VARCHAR,
+    p_description VARCHAR,
+    p_status INTEGER,
+    p_due_date DATE,
+    p_assigned_to INTEGER DEFAULT NULL
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+    v_membership_id INTEGER;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Check if user is member of the team
+    IF NOT current_user_is_member_of_team(p_team_id) THEN
+        RAISE EXCEPTION 'Permission denied: Not a member of the team.';
+    END IF;
+
+    -- Get membership ID if p_assigned_to is provided
+    IF p_assigned_to IS NOT NULL THEN
+        SELECT id INTO v_membership_id
+        FROM team_memberships
+        WHERE user_id = p_assigned_to AND team_id = p_team_id;
+
+        IF v_membership_id IS NULL THEN
+            RAISE EXCEPTION 'Assigned user % is not a member of team %.', p_assigned_to, p_team_id;
+        END IF;
+    END IF;
+
+    INSERT INTO todos (created_by, assigned_to, team_id, title, description, status, due_date, created_at, updated_at)
+    VALUES (v_current_user_id, COALESCE(v_membership_id, NULL), p_team_id, p_title, p_description, p_status, p_due_date, NOW(), NOW());
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_todo_by_id(p_todo_id INTEGER)
+RETURNS TABLE (
+    id INTEGER,
+    created_by INTEGER,
+    assigned_to INTEGER,
+    team_id INTEGER,
+    title VARCHAR,
+    description VARCHAR,
+    status_id INTEGER,
+    status_name VARCHAR,
+    due_date DATE,
+    is_deleted BOOLEAN,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    completed_at TIMESTAMP)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+    v_todo_team_id INTEGER;
+    v_todo_assigned_to_user_id INTEGER;
+    v_todo_created_by_user_id INTEGER;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT t.team_id, tm_assigned.user_id, t.created_by
+    INTO v_todo_team_id, v_todo_assigned_to_user_id, v_todo_created_by_user_id
+    FROM todos t
+    LEFT JOIN team_memberships tm_assigned ON t.assigned_to = tm_assigned.id
+    WHERE t.id = p_todo_id;
+
+    IF v_todo_team_id IS NULL THEN
+        RAISE EXCEPTION 'Todo with ID % not found or is deleted.', p_todo_id;
+    END IF;
+
+    IF NOT current_user_is_access_admin()
+        AND NOT current_user_has_local_role(v_todo_team_id, 'Team Lead')
+        AND NOT current_user_has_local_role(v_todo_team_id, 'Todo User')
+        AND NOT (v_current_user_id = v_todo_created_by_user_id)
+        AND NOT (v_current_user_id = v_todo_assigned_to_user_id) THEN
+        RAISE EXCEPTION 'Permission denied: Not authorized to view this todo.';
+    END IF;
+
+    RETURN QUERY
+    SELECT t.id, t.created_by, tm_assigned.user_id AS assigned_to, t.team_id, t.title, t.description,
+           t.status AS status_id, s.name AS status_name, t.due_date, t.is_deleted,
+           t.created_at, t.updated_at, t.completed_at
+    FROM todos t
+    JOIN statuses s ON t.status = s.id
+    LEFT JOIN team_memberships tm_assigned ON t.assigned_to = tm_assigned.id
+    WHERE t.id = p_todo_id AND t.is_deleted = FALSE;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_user_todos(p_user_id INTEGER)
+RETURNS TABLE (
+    id INTEGER,
+    created_by INTEGER,
+    assigned_to INTEGER,
+    team_id INTEGER,
+    title VARCHAR,
+    description VARCHAR,
+    status_id INTEGER,
+    status_name VARCHAR,
+    due_date DATE,
+    is_deleted BOOLEAN,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    completed_at TIMESTAMP)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+BEGIN
+    PERFORM check_current_user_exists();
+
+    IF v_current_user_id <> p_user_id AND NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Cannot view other users'' todos';
+    END IF;
+
+    RETURN QUERY
+    SELECT t.id, t.created_by, tm.user_id AS assigned_to, t.team_id, t.title, t.description,
+           t.status AS status_id, s.name AS status_name, t.due_date, t.is_deleted,
+           t.created_at, t.updated_at, t.completed_at
+    FROM todos t
+    JOIN statuses s ON t.status = s.id
+    LEFT JOIN team_memberships tm ON t.assigned_to = tm.id
+    WHERE (t.created_by = p_user_id OR tm.user_id = p_user_id) AND t.is_deleted = FALSE;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_member_todos(p_team_id INTEGER, p_user_id INTEGER)
+RETURNS TABLE (
+    id INTEGER,
+    created_by INTEGER,
+    assigned_to INTEGER,
+    team_id INTEGER,
+    title VARCHAR,
+    description VARCHAR,
+    status_id INTEGER,
+    status_name VARCHAR,
+    due_date DATE,
+    is_deleted BOOLEAN,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    completed_at TIMESTAMP)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+BEGIN
+    PERFORM check_current_user_exists();
+
+    IF NOT current_user_is_access_admin()
+        AND NOT current_user_has_local_role(p_team_id, 'Team Lead')
+        AND NOT current_user_has_local_role(p_team_id, 'Todo User')
+        AND NOT (v_current_user_id = p_user_id AND current_user_is_member_of_team(p_team_id)) THEN
+        RAISE EXCEPTION 'Permission denied: Not authorized to view todos for this member in this team.';
+    END IF;
+
+    RETURN QUERY
+    SELECT t.id, t.created_by, tm.user_id AS assigned_to, t.team_id, t.title, t.description,
+           t.status AS status_id, s.name AS status_name, t.due_date, t.is_deleted,
+           t.created_at, t.updated_at, t.completed_at
+    FROM todos t
+    JOIN statuses s ON t.status = s.id
+    LEFT JOIN team_memberships tm ON t.assigned_to = tm.id
+    WHERE t.team_id = p_team_id AND (t.created_by = p_user_id OR tm.user_id = p_user_id)
+      AND t.is_deleted = FALSE;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_team_todos(p_team_id INTEGER)
+RETURNS TABLE (
+    id INTEGER,
+    created_by INTEGER,
+    assigned_to INTEGER,
+    team_id INTEGER,
+    title VARCHAR,
+    description VARCHAR,
+    status_id INTEGER,
+    status_name VARCHAR,
+    due_date DATE,
+    is_deleted BOOLEAN,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    completed_at TIMESTAMP)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+BEGIN
+    PERFORM check_current_user_exists();
+
+    IF NOT current_user_is_access_admin()
+        AND NOT current_user_is_member_of_team(p_team_id) THEN
+        RAISE EXCEPTION 'Permission denied: Not authorized to view todos for this team.';
+    END IF;
+
+    RETURN QUERY
+    SELECT t.id, t.created_by, tm.user_id AS assigned_to, t.team_id, t.title, t.description,
+           t.status AS status_id, s.name AS status_name, t.due_date, t.is_deleted,
+           t.created_at, t.updated_at, t.completed_at
+    FROM todos t
+    JOIN statuses s ON t.status = s.id
+    LEFT JOIN team_memberships tm ON t.assigned_to = tm.id
+    WHERE t.team_id = p_team_id AND t.is_deleted = FALSE;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE update_todo(
+    p_todo_id INTEGER,
+    p_assigned_to INTEGER DEFAULT NULL,
+    p_title VARCHAR DEFAULT NULL,
+    p_description VARCHAR DEFAULT NULL,
+    p_status INTEGER DEFAULT NULL,
+    p_due_date DATE DEFAULT NULL,
+    p_completed_at TIMESTAMP DEFAULT NULL)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+    v_todo_team_id INTEGER;
+    v_old_completed_at TIMESTAMP;
+    v_membership_id INTEGER;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT team_id, completed_at INTO v_todo_team_id, v_old_completed_at FROM todos WHERE id = p_todo_id;
+
+    IF v_todo_team_id IS NULL THEN
+        RAISE EXCEPTION 'Todo with ID % not found or is deleted.', p_todo_id;
+    END IF;
+
+    IF NOT current_user_is_access_admin()
+        AND NOT current_user_has_local_role(v_todo_team_id, 'Team Lead')
+        AND NOT current_user_has_local_role(v_todo_team_id, 'Todo User') THEN
+        RAISE EXCEPTION 'Permission denied: Not authorized to update this todo.';
+    END IF;
+
+    IF current_user_has_local_role(v_todo_team_id, 'Todo User') AND
+       v_old_completed_at IS NOT NULL AND p_completed_at IS NULL THEN
+        RAISE EXCEPTION 'Permission denied: TODO User cannot un-complete todos.';
+    END IF;
+
+    IF p_assigned_to IS NOT NULL THEN
+        SELECT id INTO v_membership_id FROM team_memberships WHERE user_id = p_assigned_to AND team_id = v_todo_team_id;
+        IF v_membership_id IS NULL THEN
+            RAISE EXCEPTION 'Assigned user % is not a member of team %.', p_assigned_to, v_todo_team_id;
+        END IF;
+    END IF;
+
+    UPDATE todos
+    SET assigned_to = COALESCE(v_membership_id, assigned_to),
+        title = COALESCE(p_title, title),
+        description = COALESCE(p_description, description),
+        status = COALESCE(p_status, status),
+        due_date = COALESCE(p_due_date, due_date),
+        completed_at = COALESCE(p_completed_at, completed_at),
+        updated_at = NOW()
+    WHERE id = p_todo_id AND is_deleted = FALSE;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE delete_todo(p_todo_id INTEGER)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+    v_todo_team_id INTEGER;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT team_id INTO v_todo_team_id FROM todos WHERE id = p_todo_id;
+
+    IF v_todo_team_id IS NULL THEN
+        RAISE EXCEPTION 'Todo with ID % not found or already deleted.', p_todo_id;
+    END IF;
+
+    -- Check if current user is Access Administrator, Team Lead, or TODO User for the team
+    -- TODO User can only mark as is_deleted, which this procedure does.
+    IF NOT current_user_is_access_admin()
+        AND NOT current_user_has_local_role(v_todo_team_id, 'Team Lead')
+        AND NOT current_user_has_local_role(v_todo_team_id, 'Todo User') THEN
+        RAISE EXCEPTION 'Permission denied: Not authorized to mark this todo as deleted.';
+    END IF;
+
+    UPDATE todos SET is_deleted = TRUE WHERE id = p_todo_id;
+END;
+$$;
+
+
+---------- Global Roles Procedures ----------
+
+CREATE OR REPLACE PROCEDURE create_global_role(p_name VARCHAR)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Only Access Administrator can create global roles
+    IF NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can create global roles';
+    END IF;
+
+    INSERT INTO global_roles (name) VALUES (p_name);
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION get_all_global_roles()
+RETURNS SETOF global_roles
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    RETURN QUERY
+    SELECT * FROM global_roles;
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION get_global_role_by_id(p_role_id INTEGER)
+RETURNS SETOF global_roles
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result global_roles%ROWTYPE;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT * INTO result FROM global_roles WHERE id = p_role_id;
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+    RETURN NEXT result;
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION get_global_role_by_name(p_name VARCHAR)
+RETURNS SETOF global_roles
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result global_roles%ROWTYPE;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT * INTO result FROM global_roles WHERE name = p_name;
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+    RETURN NEXT result;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE update_global_role(p_role_id INTEGER, p_name VARCHAR)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Only Access Administrator can update global roles
+    IF NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can update global roles';
+    END IF;
+
+    UPDATE global_roles SET name = p_name WHERE id = p_role_id;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE delete_global_role(p_role_id INTEGER)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Only Access Administrator can delete global roles
+    IF NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can delete global roles';
+    END IF;
+
+    DELETE FROM global_roles WHERE id = p_role_id;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE assign_global_role(p_user_id INTEGER, p_role_id INTEGER)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Only Access Administrator can assign global roles
+    IF NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can assign global roles';
+    END IF;
+
+    INSERT INTO user_global_roles (user_id, role_id) VALUES (p_user_id, p_role_id);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_user_global_roles(p_user_id INTEGER)
+RETURNS TABLE (user_id INTEGER, role_id INTEGER, role_name VARCHAR)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Only Access Administrator or the user themselves can view their global roles
+    IF v_current_user_id <> p_user_id AND NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Cannot view other users'' global roles';
+    END IF;
+
+    RETURN QUERY
+    SELECT ugr.user_id, ugr.role_id, gr.name
+    FROM user_global_roles ugr
+    JOIN global_roles gr ON ugr.role_id = gr.id
+    WHERE ugr.user_id = p_user_id;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE revoke_global_role(p_user_id INTEGER, p_role_id INTEGER)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Only Access Administrator can revoke global roles
+    IF NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can revoke global roles';
+    END IF;
+
+    DELETE FROM user_global_roles WHERE user_id = p_user_id AND role_id = p_role_id;
+END;
+$$;
+
+
+---------- Local Roles Procedures ----------
+
+CREATE OR REPLACE PROCEDURE create_local_role(p_name VARCHAR)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Only Access Administrator can create local roles
+    IF NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can create local roles';
+    END IF;
+
+    INSERT INTO local_roles (name) VALUES (p_name);
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION get_all_local_roles()
+RETURNS SETOF local_roles
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    RETURN QUERY
+    SELECT * FROM local_roles;
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION get_local_role_by_id(p_role_id INTEGER)
+RETURNS SETOF local_roles
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result local_roles%ROWTYPE;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT * INTO result FROM local_roles WHERE id = p_role_id;
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+    RETURN NEXT result;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_local_role_by_name(p_name VARCHAR)
+RETURNS SETOF local_roles
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result local_roles%ROWTYPE;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT * INTO result FROM local_roles WHERE name = p_name;
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+    RETURN NEXT result;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE update_local_role(p_role_id INTEGER, p_name VARCHAR)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Only Access Administrator can update local roles
+    IF NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can update local roles';
+    END IF;
+
+    UPDATE local_roles SET name = p_name WHERE id = p_role_id;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE delete_local_role(p_role_id INTEGER)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM check_current_user_exists();
+
+    -- Only Access Administrator can delete local roles
+    IF NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can delete local roles';
+    END IF;
+
+    DELETE FROM local_roles WHERE id = p_role_id;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE assign_local_role(p_member_id INTEGER, p_role_id INTEGER)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+    v_team_id INTEGER;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT team_id INTO v_team_id FROM team_memberships WHERE id = p_member_id;
+    IF v_team_id IS NULL THEN
+        RAISE EXCEPTION 'Team membership not found for member ID %', p_member_id;
+    END IF;
+
+    -- Only Access Administrator or Team Lead of the team can assign local roles
+    IF NOT current_user_is_access_admin()
+        AND NOT current_user_has_local_role(v_team_id, 'Team Lead') THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator or Team Lead can assign local roles.';
+    END IF;
+
+    INSERT INTO member_local_roles (member_id, role_id) VALUES (p_member_id, p_role_id);
+END;
+$$;
+
+
+CREATE OR REPLACE FUNCTION get_member_local_roles(p_member_id INTEGER)
+RETURNS TABLE (member_id INTEGER, role_id INTEGER, role_name VARCHAR)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+    v_team_id INTEGER;
+    v_member_user_id INTEGER;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT tm.team_id, tm.user_id
+    INTO v_team_id, v_member_user_id
+    FROM team_memberships tm
+    WHERE tm.id = p_member_id;
+
+    IF v_team_id IS NULL THEN
+        RAISE EXCEPTION 'Team membership not found for member ID %', p_member_id;
+    END IF;
+
+    -- Only Access Administrator, Team Lead of the team, or the member themselves can view their local roles.
+    IF NOT current_user_is_access_admin()
+        AND NOT current_user_has_local_role(v_team_id, 'Team Lead')
+        AND NOT (v_current_user_id = v_member_user_id) THEN
+        RAISE EXCEPTION 'Permission denied: Not authorized to view this member''s local roles.';
+    END IF;
+
+    RETURN QUERY
+    SELECT mlr.member_id, mlr.role_id, lr.name
+    FROM member_local_roles mlr
+    JOIN local_roles lr ON mlr.role_id = lr.id
+    WHERE mlr.member_id = p_member_id;
+END;
+$$;
+
+
+CREATE OR REPLACE PROCEDURE revoke_local_role(p_member_id INTEGER, p_role_id INTEGER)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
+    v_team_id INTEGER;
+BEGIN
+    PERFORM check_current_user_exists();
+
+    SELECT team_id INTO v_team_id FROM team_memberships WHERE id = p_member_id;
+    IF v_team_id IS NULL THEN
+        RAISE EXCEPTION 'Team membership not found for member ID %', p_member_id;
+    END IF;
+
+    -- Only Access Administrator or Team Lead of the team can revoke local roles
+    IF NOT current_user_is_access_admin()
+        AND NOT current_user_has_local_role(v_team_id, 'Team Lead') THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator or Team Lead can revoke local roles.';
+    END IF;
+
+    DELETE FROM member_local_roles WHERE member_id = p_member_id AND role_id = p_role_id;
 END;
 $$;
