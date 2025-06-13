@@ -2,7 +2,6 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import AdminPanel from './AdminPanel';
 import TeamLeadPanel from './TeamLeadPanel';
-import UserPanel from './UserPanel';
 import { useNavigate } from 'react-router-dom'; // Add this import
 
 const Dashboard: React.FC = () => {
