@@ -60,7 +60,7 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
 
 
     //----- Procedures -----//
-    add_team_member:            [["user_id", z_id], ["team_id", z_id]],
+    add_user_to_team:           [["user_id", z_id], ["team_id", z_id]],
     assign_global_role:         [["user_id", z_id], ["role_id", z_id]],
     assign_local_role:          [["member_id", z_id], ["role_id", z_id]],
 
@@ -93,7 +93,7 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
     delete_todo:                [["todo_id", z_id]],
     delete_user:                [["user_id", z_id]],
 
-    remove_team_member:         [["user_id", z_id], ["team_id", z_id]],
+    remove_user_from_team:      [["member_id", z_id]],
 
     revoke_global_role:         [["user_id", z_id], ["role_id", z_id]],
 

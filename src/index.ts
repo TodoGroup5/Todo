@@ -35,7 +35,7 @@ const limiter = createRateLimiter({
 app.use(limiter.middleware());
 
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 app.use("/api", router);
 
 // Path to client build directory

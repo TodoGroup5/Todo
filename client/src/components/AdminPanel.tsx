@@ -296,11 +296,11 @@ const AdminPanel: React.FC = () => {
         }
     };
 
-    const handleRemoveFromTeam = async (userId: number, teamId: number) => {
+    const handleRemoveFromTeam = async (membershipId: number) => {
         if (!window.confirm('Are you sure you want to remove this user from the team?')) return;
         setEditLoading(true);
         try {
-          const response = await CrudService.delete(`/team-membership/user/${userId}/team/${teamId}`, '');
+          const response = await CrudService.delete(`/team-membership/${membershipId}`, '');
     
           if (response.error || response.data?.status === 'failed') {
             throw new Error("[REMOVE]: " + response.error);
@@ -607,7 +607,7 @@ const AdminPanel: React.FC = () => {
                                         </div>
 
                                         <button
-                                            onClick={() => handleRemoveFromTeam(editingUser.id, userTeam.team_id)}
+                                            onClick={() => handleRemoveFromTeam(userTeam.membership_id)}
                                             className="btn-danger"
                                             disabled={editLoading}
                                         >
