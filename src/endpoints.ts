@@ -320,7 +320,7 @@ const easyEndpoints: EasyEndpointMap = {
     'DELETE /team/:team_id':          ['proc', 'delete_team', paramsToNumber()],
 
     //--------------- Membership ---------------//
-    'POST   /team-membership/add':                         ['proc', 'add_user_to_team'],
+    'POST   /team-membership/add':                         ['func', 'add_user_to_team', paramsToNumber()],
     'GET    /team-membership/user/:user_id/team/:team_id': ['func', 'get_team_membership', paramsToNumber()],
     'GET    /team/:team_id/members':                       ['func', 'get_team_members', paramsToNumber()],
     'DELETE /team-membership/:member_id': ['proc', 'remove_user_from_team', paramsToNumber()],
