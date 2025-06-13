@@ -313,7 +313,7 @@ const easyEndpoints: EasyEndpointMap = {
     'DELETE /user/:user_id':       ['proc', 'delete_user', paramsToNumber()],
 
     //--------------- Teams ---------------//
-    'POST   /team/create':            ['proc', 'create_team'],
+    'POST   /team/create':            ['func', 'create_team'],
     'GET    /team/all':               ['func', 'get_all_teams'],
     'GET    /team/:team_id':          ['func', 'get_team_by_id', paramsToNumber()],
     'PUT    /team/:team_id':          ['proc', 'update_team', paramsToNumber()],
