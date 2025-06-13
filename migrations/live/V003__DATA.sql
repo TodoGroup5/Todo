@@ -6,12 +6,18 @@ INSERT INTO users (name, email, password_hash, two_fa_secret) VALUES
 
 -- Insert teams (just one team for simplicity)
 INSERT INTO teams (name, description) VALUES
-('Engineering', 'Handles all software development');
+('Engineering', 'Handles all software development'),
+('Infrasturcture', 'Handles all infra'),
+('Security', 'Handles all security'),
+('Production Support', 'Handles all production support');
+
 
 -- Insert team memberships 
 INSERT INTO team_memberships (user_id, team_id) VALUES
 (2, 1), -- Bob (team lead) in Engineering
-(3, 1); -- Charlie (todo user) in Engineering
+(3, 1), -- Charlie (todo user) in Engineering
+(2, 3), -- Bob (team lead) in Engineering
+(3, 3); -- Charlie (todo user) in Engineering
 
 -- Insert user global roles
 INSERT INTO user_global_roles (user_id, role_id) VALUES

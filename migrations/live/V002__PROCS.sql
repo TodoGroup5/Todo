@@ -169,7 +169,7 @@ RETURNS BOOLEAN
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    RETURN current_user_has_global_role('Access Administrator');
+    RETURN current_user_has_global_role('Access Admin');
 END;
 $$;
 
@@ -553,7 +553,7 @@ AS $$
 BEGIN
     PERFORM check_current_user_exists();
 
-    RETURN QUERY SELECT id, name, description FROM teams;
+    RETURN QUERY SELECT t.id, t.name, t.description FROM teams t;
 END;
 $$;
 

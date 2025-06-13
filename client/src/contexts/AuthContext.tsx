@@ -27,7 +27,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const url = baseUrl();
 
-
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -47,7 +46,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const verify2FA = async (code: string): Promise<boolean> => {
     try {
-      // Simulate API call
       const response = await fetch(`${url}/login/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,6 +54,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           twoFactorToken: code 
         })
       });
+
+      // setUser({
+      //   id: '1',
+      //   username: "alice@example.com",
+      //   roles: ["Access Admin"]
+      // });
+
+      // return true;
       
       if (response.ok) {
         try {
@@ -70,7 +76,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUser({
             id: data.data.user_id,
             username: data.data.email,
-            roles: [globalRoleResponse.data.data[0].role_name]
+            roles: [globalRoleResponse.data.data?.[0]?.role_name ?? "User"]
           });
 
           console.log(data.data.email, globalRoleResponse.data.data[0].role_name);
