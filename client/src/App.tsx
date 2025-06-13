@@ -7,19 +7,19 @@ import TwoFactorAuth from './components/TwoFactorAuth.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import './App.css';
 import Settings from './components/Settings.tsx';
-import { CrudService } from './api/crudService.ts';
+// import { CrudService } from './api/crudService.ts';
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = async ({ children }) => {
+// const ProtectedRoute: React.FC<{ children: React.ReactNode }> = async ({ children }) => {
 
-  // const { isAuthenticated } = useAuth();
-  type AuthResponse = { isAuthenticated: true, user_id: number, email: string } | { isAuthenticated: false };
-  const res = await CrudService.read<AuthResponse>('/auth')
-  // const AUTH_PAGES = ['/login', '/2fa'];
+//   const { isAuthenticated } = useAuth();
+//   // type AuthResponse = { isAuthenticated: true, user_id: number, email: string } | { isAuthenticated: false };
+//   // const res = await CrudService.read<AuthResponse>('/auth')
+//   // const AUTH_PAGES = ['/login', '/2fa'];
 
-  const isAuthenticated = res?.data?.status === "success" && res?.data?.data?.isAuthenticated;
+//   // const isAuthenticated = res?.data?.status === "success" && res?.data?.data?.isAuthenticated === true;
 
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
-};
+//   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+// };
 
 const App: React.FC = () => {
   return (
@@ -29,18 +29,10 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/2fa" element={<TwoFactorAuth />} />
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            } />
+            <Route path="/settings" element={<Settings />} />
             <Route 
               path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
+              element={<Dashboard />} 
             />
             <Route path="/" element={<Navigate to="/login" />} />
           </Routes>
