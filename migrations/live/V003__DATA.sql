@@ -1,8 +1,8 @@
 -- Insert users (simplified to 3 users)
 INSERT INTO users (name, email, password_hash, two_fa_secret) VALUES
-('Alice Smith', 'alice@example.com', '$2b$10$XRRPo3.cCB2BrmFG1zS8U.QoSAjYQjg.L45dAD6MiwmvELZWwd7KK', 'NUXXG43ONQSTSJTNF5JE6I2SMRZEW3RD'),
-('Bob Jones', 'bob@example.com', '$2b$10$XRRPo3.cCB2BrmFG1zS8U.QoSAjYQjg.L45dAD6MiwmvELZWwd7KK', 'NUXXG43ONQSTSJTNF5JE6I2SMRZEW3RD'),
-('Charlie Brown', 'charlie@example.com', '$2b$10$XRRPo3.cCB2BrmFG1zS8U.QoSAjYQjg.L45dAD6MiwmvELZWwd7KK', 'NUXXG43ONQSTSJTNF5JE6I2SMRZEW3RD');
+('Alice Smith', 'alice@example.com', '$2b$10$AI.khCgHDLqPpQi0kahXT.XbCy/PMsKR9JiufH.dwBC.DDGDrwQfO', 'NUXXG43ONQSTSJTNF5JE6I2SMRZEW3RD'),
+('Bob Jones', 'bob@example.com', '$2b$10$AI.khCgHDLqPpQi0kahXT.XbCy/PMsKR9JiufH.dwBC.DDGDrwQfO', 'NUXXG43ONQSTSJTNF5JE6I2SMRZEW3RD'),
+('Charlie Brown', 'charlie@example.com', '$2b$10$AI.khCgHDLqPpQi0kahXT.XbCy/PMsKR9JiufH.dwBC.DDGDrwQfO', 'NUXXG43ONQSTSJTNF5JE6I2SMRZEW3RD');
 
 -- Insert teams (just one team for simplicity)
 INSERT INTO teams (name, description) VALUES
