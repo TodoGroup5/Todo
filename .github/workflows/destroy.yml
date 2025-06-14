@@ -1,4 +1,4 @@
-name: Deployment Pipeline
+name: Destroy Pipeline
 
 on:
   workflow_dispatch:
