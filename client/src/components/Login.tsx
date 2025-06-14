@@ -21,9 +21,10 @@ interface loginResponse {
 const AuthPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [qrCodeData, setQRCodeData] = useState({});
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const { login } = useAuth();
+  const [setup2FAMessage, set2FAMessage] = useState('');
   const navigate = useNavigate();
   
   const [loginData, setLoginData] = useState({
@@ -71,15 +72,9 @@ const AuthPage: React.FC = () => {
         throw new Error("[DATA]: " + response.data.error); 
       }
 
-      UserStorageService.setUser(response.data.data.user_id, response.data.data.email)
-
-      const success = await login(signInData.email, signInData.password);
-      if (success) {
-
-        navigate('/2fa', {state:{otpauthURL: response.data.data.qrCodeUrl}});
-      } else {
-        setError('Invalid email or password');
-      }
+      navigate('/2fa', {state:{ user_id:response.data.data.user_id }});
+     
+      
     } catch (err) {
       setError('Login failed. Please try again.');
     } finally {
@@ -129,7 +124,7 @@ const AuthPage: React.FC = () => {
         password: signupData.password,
       };
 
-      const response = await CrudService.create<typeof userData, {token: string}>('/signup', userData);
+      const response = await CrudService.create<typeof userData, {qrCodeUrl: string, user_id:string}>('/signup', userData);
       
       if (response.error) { 
         throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); 
@@ -144,7 +139,8 @@ const AuthPage: React.FC = () => {
       if (response.data.status === 'failed') { 
         throw new Error("[DATA]: " + response.data.error); 
       }
-
+      
+      setQRCodeData({qrCodeUrl: response.data.data.qrCodeUrl, user_id:response.data.data.user_id })
       setSuccessMessage('Account created successfully! Please log in.');
       setSignupData({
         name: '',
@@ -154,10 +150,9 @@ const AuthPage: React.FC = () => {
         role: 'user'
       });
       
-      setTimeout(() => {
-        setIsLogin(true);
-        setSuccessMessage('');
-      }, 2000);
+       // setIsLogin(true);
+      set2FAMessage('Account created successfully. Set up 2FA by scanning the QR code.');
+      
 
     } catch (err) {
       console.log("Could not create user account", err);
@@ -238,7 +233,9 @@ const AuthPage: React.FC = () => {
               </button>
             </div>
           ) : (
-            <div className="auth-form">
+           <>
+           {setup2FAMessage.length=== 0 &&(
+             <div className="auth-form">
               <div className="form-group">
                 <label htmlFor="signup-username">Username</label>
                 <input
@@ -287,14 +284,26 @@ const AuthPage: React.FC = () => {
                 />
               </div>
 
-              <button 
+                <button 
                 onClick={handleSignupSubmit}
                 className="btn-primary"
                 disabled={loading}
               >
                 {loading ? 'Creating Account...' : 'Create Account'}
               </button>
+
             </div>
+           )}
+           </>
+          )}
+
+          {setup2FAMessage.length > 0 && (
+                <>
+                <h1>Setup 2FA to continue</h1>
+                <button className="btn-primary" onClick={()=> navigate("/setup-2fa", {state:{qrCodeData}})}>
+                        Enable 2FA
+                </button>
+                </>
           )}
 
           <div className="toggle-section">

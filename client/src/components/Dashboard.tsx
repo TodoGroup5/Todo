@@ -37,7 +37,7 @@ const Dashboard: React.FC = () => {
             <button onClick={() => navigate('/settings')} className="btn-secondary">
               Settings
             </button>
-            <button onClick={logout} className="btn-secondary">
+            <button onClick={() => {logout(); navigate('/login')  }} className="btn-secondary">
               Logout
             </button>
           </div>
