@@ -8,6 +8,7 @@ const Setup2FA: React.FC = () => {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const {isAuthenticated} = useAuth();
   
   const { setup2FA } = useAuth();
   const navigate = useNavigate();
@@ -80,12 +81,22 @@ const Setup2FA: React.FC = () => {
     </div>)
     :
     (
-        <div>
+        <>
+        {isAuthenticated ? (<div>
+            <h1>You are already 2fa enabled and authenticated</h1>
+            <button onClick={()=> navigate('/dashboard')}>
+                Go back to dashboard
+            </button>
+        </div>):(
+          <div>
             <h1>Please complete registration by setting up two factor authentication!</h1>
             <button onClick={()=> navigate('/login')}>
                 Go back to landing page
             </button>
         </div>
+        )}
+        
+        </>
     )}
     </>
   );

@@ -266,6 +266,17 @@ router.post('/login/verify', async (req: Request, res: Response) => {
     sendResponse(res, { status: 'success', data: { user_id, name } });
 });
 
+router.post('/logout', async (req: Request, res: Response) => {
+    res.clearCookie('jwt', {
+        httpOnly: true,
+        secure: isProductionEnvironment(),
+        sameSite: 'strict',
+    });
+    res.status(200).json({ message: 'Logged out successfully' });
+});
+
+
+
 router.post('/change-password', async (req: Request, res: Response) => {
     //----- Check JWT -----//
     const token = checkJWTAuth(req);

@@ -9,7 +9,7 @@ const TwoFactorAuth: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { verify2FA } = useAuth();
+  const { verify2FA, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const user_id = location.state?.user_id ?? "";
@@ -45,7 +45,17 @@ const TwoFactorAuth: React.FC = () => {
   };
 
   return (
-    <div className="auth-container">
+    <>
+    {isAuthenticated ? (<div>
+            <h1>You are already authenticated</h1>
+            <button onClick={()=> navigate('/dashboard')}>
+                Go back to dashboard
+            </button>
+        </div>):
+    (
+      <>
+      {user_id ? (
+        <div className="auth-container">
       <div className="auth-card">
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
@@ -76,6 +86,17 @@ const TwoFactorAuth: React.FC = () => {
 
       </div>
     </div>
+      ):(
+        <div>
+            <h1>Please login first</h1>
+            <button onClick={()=> navigate('/login')}>
+                Go back to dashboard
+            </button>
+        </div>
+      )}
+      </>
+    )}
+    </>
   );
 };
 

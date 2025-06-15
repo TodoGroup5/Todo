@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { baseUrl } from '../utility/deployment';
 import { CrudService } from '../api/crudService';
+import { includes } from 'zod/v4';
 
 export interface User {
   id: number;
@@ -172,6 +173,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
     setPendingAuth(null);
     setIsAuthenticated(false);
+    fetch(`${url}/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    })
+      .then(res => res.json())
+      .then(data => console.log(data.message));
   };
 
   return (
