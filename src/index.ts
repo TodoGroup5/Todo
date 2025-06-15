@@ -30,11 +30,11 @@ app.use(cors({
   allowedHeaders: []
 }));
 
-// const limiter = createRateLimiter({
-//   windowInMilliseconds: 60_000,
-//   maximumAllowedRequests: 60,
-// });
-// app.use(limiter.middleware());
+const limiter = createRateLimiter({
+  windowInMilliseconds: 60_000,
+  maximumAllowedRequests: 60,
+});
+app.use(limiter.middleware());
 
 app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));

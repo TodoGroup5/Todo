@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CrudService } from '../api/crudService.ts';
 import AnalyticsBarChart from './AnalyticsBarChart';
-import UserStorageService from '../api/userStorageService.ts';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Todo {
   id: number;
@@ -41,21 +41,20 @@ interface Team {
 }
 
 const TeamLeadPanel: React.FC = () => {
+  const { user } = useAuth();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [teamsLoading, setTeamsLoading] = useState(true);
-  const [newTodo, setNewTodo] = useState({
-    title: '',
-    description: '',
-    assignedTo: ''
-  });
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  
-  const userId = UserStorageService.getUserId();
+  const [newTodo, setNewTodo] = useState({
+    title: '',
+    description: '',
+    assignedTo: ''
+  });
 
   const isTeamLead = () => {
     if (!selectedTeam) return false;
@@ -67,7 +66,7 @@ const TeamLeadPanel: React.FC = () => {
   const fetchUserTeams = useCallback(async () => {
     try {
       setTeamsLoading(true);
-      const response = await CrudService.read<Team[]>(`/user/${userId}/teams`);
+      const response = await CrudService.read<Team[]>(`/user/${user.id}/teams`);
       console.log("TEAMS RESPONSE:", response.data);
       
       if (response.error) { 
@@ -90,7 +89,7 @@ const TeamLeadPanel: React.FC = () => {
     } finally { 
       setTeamsLoading(false); 
     }
-  }, [userId, selectedTeam]);
+  }, [user.id, selectedTeam]);
 
   const fetchTeamTodos = useCallback(async () => {
     if (!selectedTeam) return;
@@ -102,7 +101,7 @@ const TeamLeadPanel: React.FC = () => {
       if (isTeamLead()) {
         endpoint = `/team/${selectedTeam.team_id}/todos`;
       } else {
-        endpoint = `/user/${userId}/todos?team_id=${selectedTeam.team_id}`;
+        endpoint = `/user/${user.id}/todos?team_id=${selectedTeam.team_id}`;
       }
       
       const response = await CrudService.read<Todo[]>(endpoint);
@@ -118,11 +117,9 @@ const TeamLeadPanel: React.FC = () => {
     }
     catch (err) { console.log("Failed to fetch todos", err); }
     finally { setLoading(false); }
-  }, [selectedTeam, userId]);
+  }, [selectedTeam, user.id]);
 
   const fetchTeamMembers = useCallback(async () => {
-    if (!selectedTeam || !isTeamLead()) return;
-    
     try {
       const response = await CrudService.read<TeamMember[]>(`/team/${selectedTeam.team_id}/members`);
       if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message + (response.data ? "\n" + JSON.stringify(response.data) : "")); return; }
@@ -161,9 +158,7 @@ const TeamLeadPanel: React.FC = () => {
   useEffect(() => {
     if (selectedTeam) {
       fetchTeamTodos(); 
-      if (isTeamLead()) {
-        fetchTeamMembers(); 
-      }
+      fetchTeamMembers(); 
     }
   }, [selectedTeam, fetchTeamTodos, fetchTeamMembers]);
 
@@ -184,8 +179,8 @@ const TeamLeadPanel: React.FC = () => {
         team_id: selectedTeam.team_id, 
         title: newTodo.title,
         description: newTodo.description,
-        status: 1,
-        assigned_to: isTeamLead() && newTodo.assignedTo ? parseInt(newTodo.assignedTo) : userId,
+        status: 0,
+        assigned_to: isTeamLead() && newTodo.assignedTo ? parseInt(newTodo.assignedTo) : user.id,
         due_date: new Date()
       };
 
@@ -305,11 +300,7 @@ const TeamLeadPanel: React.FC = () => {
   };
 
   const canEditTodo = (todo: Todo): boolean => {
-    return isTeamLead() || todo.assigned_to === userId || todo.created_by === userId;
-  };
-
-  const canDeleteTodo = (todo: Todo): boolean => {
-    return isTeamLead();
+    return isTeamLead() || todo.assigned_to === user.id || todo.created_by === user.id;
   };
 
   if (teamsLoading) return <div>Loading teams...</div>;
@@ -467,8 +458,8 @@ const TeamLeadPanel: React.FC = () => {
                         {isTeamLead() && (
                           <span>Assigned to: <strong>{getTeamMemberName(todo.assigned_to)}</strong></span>
                         )}
-                        <span>Created by: {todo.created_by}</span>
-                        <span>Date: {todo.created_at}</span>
+                        <span>Created by: {getTeamMemberName(todo.created_by)}</span>
+                        <span>Date: {new Date(todo.created_at).toLocaleString()}</span>
                         <div className="todo-actions">
                           {canEditTodo(todo) && (
                             <button 
@@ -478,7 +469,7 @@ const TeamLeadPanel: React.FC = () => {
                               Edit
                             </button>
                           )}
-                          {canDeleteTodo(todo) && (
+                          {isTeamLead() && (
                             <button 
                               onClick={() => handleDeleteTodo(todo.id)}
                               className="btn-link btn-danger"
