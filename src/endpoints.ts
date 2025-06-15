@@ -81,7 +81,7 @@ function consReqHandler(type: CallType, call: CallName, urlParamFormatter: Param
                 sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
                 return;
             }
-            const { user_id, email } = token;
+            const { user_id } = token;
 
             //----- Return -----//
             sendResponse(
@@ -153,7 +153,7 @@ router.post('/signup', async (req: Request, res: Response) => {
     const password_hash = hashPassword(password);
     // Generate 2FA secret immediately upon user signup
     const secret = speakeasy.generateSecret({
-        name: `TodoApp-Group-5`,
+        name: `TodoApp-${name}`,
         issuer: 'TodoApp',
         length: 20
     });
@@ -165,11 +165,44 @@ router.post('/signup', async (req: Request, res: Response) => {
         sendResponse(res, { status: 'failed', error: 'userCreateFailed', data: createRes }, 400);
         return;
     }
+
     const { user_id } = createRes.data[0];
+    //----- Return -----//
+    sendResponse(res, { status: 'success', data: { user_id, qrCodeUrl } });
+});
+
+router.post('/signup/confirm', async (req: Request, res: Response) => {
+    //----- Validate request params -----//
+    const expected: ParamValidator[] = [ ["code", z_str_nonempty], ["user_id", z_id] ];
+    const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
+    if (parseRes.status === 'failed') {
+        sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
+        return;
+    }
+    const [ code, user_id ] = parseRes.params as string[];
+
+    const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets', params: { user_id } });
+    if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
+        sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
+        return;
+    }
+
+    const { two_fa_secret, email } = userRes.data[0];
+
+    // Verify the 2FA token
+    const verified = speakeasy.totp.verify({
+        secret: two_fa_secret,
+        encoding: 'base32',
+        token: code,
+        window: 2
+    });
+    
+    if (!verified) {
+        return sendResponse(res, { status: 'failed', error: 'incorrect 2fa code' }, 401);
+    }
 
     //----- Return -----//
-    setJWT(res, user_id, email);
-    sendResponse(res, { status: 'success', data: { user_id, email, qrCodeUrl } });
+    sendResponse(res, { status: 'success'});
 });
 
 router.post('/login', async (req: Request, res: Response) => {
@@ -189,41 +222,39 @@ router.post('/login', async (req: Request, res: Response) => {
         return;
     }
 
-    const { id: user_id, password_hash, two_fa_secret } = userRes.data[0];
-    // Generate QR code using the user's existing 2FA secret
-    const otpauthUrl = speakeasy.otpauthURL({
-        secret: two_fa_secret,
-        label: `TodoApp-Group-5`,
-        issuer: 'TodoApp',
-        encoding: 'base32'
-    });
-    
-    const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
+    const { id: user_id, password_hash } = userRes.data[0];
+
     //----- Check hashes match -----//
     const isValid = comparePassHash(password, password_hash);
     if (!isValid) {
         sendResponse(res, { status: 'failed', error: 'incorrectPassword' }, 401);
         return;
     }
-    sendResponse(res, { status: 'success', data: { user_id, email, qrCodeUrl } });
+    sendResponse(res, { status: 'success', data: { user_id } });
 });
 
 router.post('/login/verify', async (req: Request, res: Response) => {
-    const { email, twoFactorToken } = req.body;
+    const expected: ParamValidator[] = [ ["code", z_str_nonempty], ["user_id", z_id] ];
+    const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
+    if (parseRes.status === 'failed') {
+        sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
+        return;
+    }
+    const [ code, user_id ] = parseRes.params as string[];
 
     //find user
-    const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets_by_email', params: { email } });
+    const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets', params: { user_id } });
     if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
         sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
         return;
     }
 
-    const { id: user_id, two_fa_secret } = userRes.data[0];
+    const { two_fa_secret, email, name } = userRes.data[0];
     // Verify the 2FA token
     const verified = speakeasy.totp.verify({
         secret: two_fa_secret,
         encoding: 'base32',
-        token: twoFactorToken,
+        token: code,
         window: 2
     });
     
@@ -231,9 +262,20 @@ router.post('/login/verify', async (req: Request, res: Response) => {
         return sendResponse(res, { status: 'failed', error: 'incorrect 2fa code' }, 401);
     }
     //----- Return -----//
-    setJWT(res, user_id, email);
-    sendResponse(res, { status: 'success', data: { user_id, email } });
+    setJWT(res, parseInt(user_id), email);
+    sendResponse(res, { status: 'success', data: { user_id, name } });
 });
+
+router.post('/logout', async (req: Request, res: Response) => {
+    res.clearCookie('jwt', {
+        httpOnly: true,
+        secure: isProductionEnvironment(),
+        sameSite: 'strict',
+    });
+    res.status(200).json({ message: 'Logged out successfully' });
+});
+
+
 
 router.post('/change-password', async (req: Request, res: Response) => {
     //----- Check JWT -----//
@@ -288,11 +330,26 @@ router.post('/change-password', async (req: Request, res: Response) => {
 
 // Returns { isAuthenticated: true } if the user has a valid JWT
 router.get('/auth', async (req: Request, res: Response) => {
-    type AuthResponse = { isAuthenticated: boolean };
+    type AuthResponse = { isAuthenticated: boolean, username:string, roles: string[], user_id: number};
     try {
         //----- Check JWT -----//
         const token = checkJWTAuth(req);
-        sendResponse<AuthResponse, AuthResponse>(res, { status: 'success', data: { isAuthenticated: (token != null) } }, 200);
+        if (token == null) {
+            sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
+            return;
+        }
+        const { user_id } = token;
+
+        //find user
+        const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets', params: { user_id } });
+        if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
+            sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
+            return;
+        }
+
+        const { name } = userRes.data[0];
+
+        sendResponse<AuthResponse, AuthResponse>(res, { status: 'success', data: { isAuthenticated: (token != null), username: name, roles:[], user_id } }, 200);
 
     } catch (err) { // Catch-all
         console.error(err);

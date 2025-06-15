@@ -41,7 +41,7 @@ function buildSetCookieHeader(token: string): string {
     "Path=/",
     "Secure",
     "SameSite=Strict",
-    "HttpOnly=false",
+    "HttpOnly=true",
   ];
   return parts.join("; ");
 }

@@ -25,7 +25,6 @@ interface AnalyticsBarChartProps {
 }
 
 const AnalyticsBarChart: React.FC<AnalyticsBarChartProps> = ({ todos, statuses }) => {
-  // Calculate todo counts by status
   const statusCounts = statuses.map(status => {
     const count = todos.filter(todo => todo.status_id === status.id).length;
     return {

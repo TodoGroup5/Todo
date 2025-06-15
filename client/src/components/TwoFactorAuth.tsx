@@ -9,10 +9,10 @@ const TwoFactorAuth: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { verify2FA } = useAuth();
+  const { verify2FA, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const otpauthURL = location.state?.otpauthURL;
+  const user_id = location.state?.user_id ?? "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +26,7 @@ const TwoFactorAuth: React.FC = () => {
     setError('');
 
     try {
-      const success = await verify2FA(code);
+      const success = await verify2FA(user_id, code);
       if (success) {
         navigate('/dashboard');
       } else {
@@ -45,9 +45,18 @@ const TwoFactorAuth: React.FC = () => {
   };
 
   return (
-    <div className="auth-container">
+    <>
+    {isAuthenticated ? (<div>
+            <h1>You are already authenticated</h1>
+            <button onClick={()=> navigate('/dashboard')}>
+                Go back to dashboard
+            </button>
+        </div>):
+    (
+      <>
+      {user_id ? (
+        <div className="auth-container">
       <div className="auth-card">
-        <OTPQRCode otpauthUrl={otpauthURL}/>
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label htmlFor="code">Verification Code</label>
@@ -75,11 +84,19 @@ const TwoFactorAuth: React.FC = () => {
           </button>
         </form>
 
-        <div className="demo-info">
-          <p><small>Demo: Enter any 6-digit code (e.g., 123456)</small></p>
-        </div>
       </div>
     </div>
+      ):(
+        <div>
+            <h1>Please login first</h1>
+            <button onClick={()=> navigate('/login')}>
+                Go back to dashboard
+            </button>
+        </div>
+      )}
+      </>
+    )}
+    </>
   );
 };
 

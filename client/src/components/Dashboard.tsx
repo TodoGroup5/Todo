@@ -2,11 +2,11 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import AdminPanel from './AdminPanel';
 import TeamLeadPanel from './TeamLeadPanel';
-import { useNavigate } from 'react-router-dom'; // Add this import
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
-  const navigate = useNavigate(); // Add this hook
+  const navigate = useNavigate();
 
   if (!user) return null;
 
@@ -18,10 +18,6 @@ const Dashboard: React.FC = () => {
     } else if (hasRole('User')) {
       return <TeamLeadPanel />
     }
-    //   return <TeamLeadPanel />;
-    // } else if (hasRole('todo_user')) {
-    //   return <UserPanel />;
-    // }
     return <div>No role assigned</div>;
   };
 
@@ -36,7 +32,7 @@ const Dashboard: React.FC = () => {
             <button onClick={() => navigate('/settings')} className="btn-secondary">
               Settings
             </button>
-            <button onClick={logout} className="btn-secondary">
+            <button onClick={() => {logout(); navigate('/login')  }} className="btn-secondary">
               Logout
             </button>
           </div>
@@ -47,6 +43,5 @@ const Dashboard: React.FC = () => {
     </div>
   );
 };
-
 
 export default Dashboard;
