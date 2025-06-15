@@ -625,6 +625,8 @@ CREATE OR REPLACE FUNCTION add_user_to_team(
 RETURNS TABLE(membership_id INT)
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    v_membership_id INT;
 BEGIN
     PERFORM check_current_user_exists();
 
@@ -634,10 +636,15 @@ BEGIN
         RAISE EXCEPTION 'Permission denied: Only Access Administrator or Team Lead can add members';
     END IF;
 
-    RETURN QUERY
+    -- Insert team membership
     INSERT INTO team_memberships (user_id, team_id)
     VALUES (p_user_id, p_team_id)
-    RETURNING id;
+    RETURNING id INTO v_membership_id;
+
+    -- Assign the default role (Todo User = 1)
+    CALL update_member_roles(v_membership_id, ARRAY[1]);
+
+    RETURN QUERY SELECT v_membership_id;
 END;
 $$;
 
