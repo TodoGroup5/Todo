@@ -339,8 +339,6 @@ router.get('/auth', async (req: Request, res: Response) => {
             return;
         }
         const { user_id } = token;
-        console.log("user id")
-        console.log(user_id);
 
         //find user
         const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets', params: { user_id } });
@@ -350,20 +348,6 @@ router.get('/auth', async (req: Request, res: Response) => {
         }
 
         const { name } = userRes.data[0];
-
-        //find user roles
-        const userRolesRes = await callDB(dbPool, user_id, { type: 'func', call: 'get_user_global_roles', params: { user_id } });
-        if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
-            sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
-            return;
-        }
-        console.log(userRolesRes)
-
-        if (userRolesRes.data){
-            console.log(userRolesRes.data[0]);
-        }
-
-
 
         sendResponse<AuthResponse, AuthResponse>(res, { status: 'success', data: { isAuthenticated: (token != null), username: name, roles:[], user_id } }, 200);
 
