@@ -2,7 +2,6 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { baseUrl } from '../utility/deployment';
 import { CrudService } from '../api/crudService';
-import { includes } from 'zod/v4';
 
 export interface User {
   id: number;
@@ -42,7 +41,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setIsLoading] = useState(true);
-  const [pendingAuth, setPendingAuth] = useState<{email: string, password: string} | null>(null);
 
   // Run once on mount
   useEffect(() => {
@@ -66,7 +64,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             username: json.data.username,
             roles: [globalRoleResponse.data.data?.[0]?.role_name ?? "User"],
             id: json.data.user_id
-          })
+            });
+
         }
       } else {
         setIsAuthenticated(false);
@@ -82,7 +81,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    setPendingAuth({ email, password });
     return true;
   };
 
@@ -97,12 +95,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         })
       });
 
-      
       if (response.ok) {
         try {
           const data = await response.json();
-
-
           console.log(data)
 
         } catch (err) {
@@ -111,7 +106,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return true;
       }
 
-      setPendingAuth(null);
       return false;
     } catch (error) {
       console.log(error)
@@ -128,14 +122,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           user_id
         })
       });
-
-      // setUser({
-      //   id: '1',
-      //   username: "alice@example.com",
-      //   roles: ["Access Admin"]
-      // });
-
-      // return true;
       
       if (response.ok) {
         try {
@@ -152,9 +138,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             username: data.data.name,
             roles: [globalRoleResponse.data.data?.[0]?.role_name ?? "User"]
           });
-          setIsAuthenticated(true);
 
-          console.log(globalRoleResponse.data.data[0].role_name);
+          setIsAuthenticated(true);
 
         } catch (err) {
           console.log("Failed to fetch global roles", err);
@@ -162,7 +147,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return true;
       }
 
-      setPendingAuth(null);
       return false;
     } catch (error) {
       console.log(error)
@@ -171,7 +155,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = () => {
     setUser(null);
-    setPendingAuth(null);
     setIsAuthenticated(false);
     fetch(`${url}/logout`, {
       method: 'POST',

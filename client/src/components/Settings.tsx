@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CrudService } from '../api/crudService.ts';
-import UserStorageService from '../api/userStorageService.ts';
+import { useAuth } from '../contexts/AuthContext.tsx';
 
 type UserInfo = {
   "id": number,
@@ -13,6 +13,7 @@ type UserInfo = {
 };
 
 const Settings: React.FC = () => {
+  const { user } = useAuth();
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [updateLoading, setUpdateLoading] = useState(false);
@@ -29,15 +30,13 @@ const Settings: React.FC = () => {
     confirmPassword: ''
   });
 
-  const currentUserId = UserStorageService.getUserId();
-
   useEffect(() => {
     fetchUserInfo();
   }, []);
 
   const fetchUserInfo = async () => {
     try {
-      const response = await CrudService.read<UserInfo[]>(`/user/${currentUserId}`);
+      const response = await CrudService.read<UserInfo[]>(`/user/${user.id}`);
       if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
       if (response.data == null) return;
 
@@ -92,7 +91,7 @@ const Settings: React.FC = () => {
         email: formData.email
       };
 
-      const response = await CrudService.update('/user', currentUserId, updateData);
+      const response = await CrudService.update('/user', user.id, updateData);
       if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
       if (response.data == null) return;
 
@@ -140,7 +139,7 @@ const Settings: React.FC = () => {
     try {
       // You'll need to create a custom endpoint for password changes
       // as it requires special handling with password hashing
-      const response = await CrudService.customRequest(`/user/${currentUserId}`, 'PUT', {
+      const response = await CrudService.customRequest(`/user/${user.id}`, 'PUT', {
         current_password: formData.currentPassword,
         new_password: formData.newPassword
       });
@@ -179,7 +178,7 @@ const Settings: React.FC = () => {
     } else {
       try {
         // Remove 2FA secret by updating user with null value
-        const response = await CrudService.update('/user', currentUserId, {
+        const response = await CrudService.update('/user', user.id, {
           two_fa_secret: null
         });
 
@@ -210,7 +209,7 @@ const Settings: React.FC = () => {
     }
 
     try {
-      const response = await CrudService.update('/user', currentUserId, {
+      const response = await CrudService.update('/user', user.id, {
         two_fa_secret: 'DEMO_SECRET_' + Date.now()
       });
 

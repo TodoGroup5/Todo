@@ -29,15 +29,6 @@ interface Role {
 	name: string;
 }
 
-interface TeamMember {
-  membership_id: number;
-  user_id: number;
-  user_name: string;
-  user_email: string;
-  role_ids: number[];
-  role_names: string[];
-}
-
 const AdminPanel: React.FC = () => {
 	const [users, setUsers] = useState<User[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -367,7 +358,6 @@ const AdminPanel: React.FC = () => {
                 throw new Error("[ADD]: " + response.error);
             }
 
-            // Reset selection and refresh user teams
             setSelectedTeamId(null);
             setShowAddToTeam(false);
             await fetchUserTeams(editingUser.id);
