@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { CrudService } from '../api/crudService.ts';
 import UserStorageService from '../api/userStorageService.ts';
 
@@ -23,7 +22,6 @@ interface Status {
 }
 
 const UserPanel: React.FC = () => {
-  const { user } = useAuth();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTodo, setNewTodo] = useState({

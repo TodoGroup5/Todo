@@ -15,9 +15,3 @@ export interface CrudOptions {
 	headers?: { [key: string]: string };
 	params?: { [key: string]: string };
 }
-
-export interface TokenProvider {
-	getToken(): string | null;
-	setToken(token: string): void;
-	removeToken(): void;
-}

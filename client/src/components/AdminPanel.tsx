@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CrudService } from '../api/crudService.ts';
 
 interface User {
@@ -29,24 +29,15 @@ interface Role {
 	name: string;
 }
 
-interface TeamMember {
-  membership_id: number;
-  user_id: number;
-  user_name: string;
-  user_email: string;
-  role_ids: number[];
-  role_names: string[];
-}
-
 const AdminPanel: React.FC = () => {
 	const [users, setUsers] = useState<User[]>([]);
-	const [loading, setLoading] = useState(true);
 	const [updateLoading, setUpdateLoading] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [globalRoles, setGlobalRoles] = useState<Role[]>([]);
     const [localRoles, setLocalRoles] = useState<Role[]>([]);
     const [editLoading, setEditLoading] = useState(false);
     const [userTeams, setUserTeams] = useState<UserTeam[]>([]);
+    const [successMessage, setSuccessMessage] = useState('');
     
     const [allTeams, setAllTeams] = useState<Team[]>([]);
     const [showCreateTeam, setShowCreateTeam] = useState(false);
@@ -82,8 +73,6 @@ const AdminPanel: React.FC = () => {
 			setUsers(usersData.slice(1));
 		} catch (err) {
 			console.log('Failed to fetch users', err);
-		} finally {
-			setLoading(false);
 		}
 	}, []);
 
@@ -340,6 +329,7 @@ const AdminPanel: React.FC = () => {
             await fetchAllTeams();
             
             console.log('Team created successfully');
+            setSuccessMessage(`Team ${newTeam.name} created successfully`)
         } catch (err) {
             console.log("Failed to create team", err);
             alert('Failed to create team. Please try again.');
@@ -365,7 +355,6 @@ const AdminPanel: React.FC = () => {
                 throw new Error("[ADD]: " + response.error);
             }
 
-            // Reset selection and refresh user teams
             setSelectedTeamId(null);
             setShowAddToTeam(false);
             await fetchUserTeams(editingUser.id);
@@ -399,7 +388,7 @@ const AdminPanel: React.FC = () => {
                     <div className="section-header">
                         <h3>Team Management</h3>
                         <button
-                            onClick={() => setShowCreateTeam(!showCreateTeam)}
+                            onClick={() => {setShowCreateTeam(!showCreateTeam); setSuccessMessage('')}}
                             className="btn-primary"
                             disabled={teamLoading}
                         >
@@ -448,6 +437,12 @@ const AdminPanel: React.FC = () => {
                                     Cancel
                                 </button>
                             </div>
+                        </div>
+                    )}
+
+                     {successMessage && (
+                        <div className="success-message" style={{marginTop:5}}>
+                        {successMessage}
                         </div>
                     )}
                 </div>
