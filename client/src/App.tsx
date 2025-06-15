@@ -24,7 +24,7 @@ const App: React.FC = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/setup-2fa" element={<Setup2FA />} />
             <Route path="/2fa" element={<TwoFactorAuth />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings" element={<ProtectedRoute><Settings/></ProtectedRoute>} />
             <Route 
               path="/dashboard" 
               element={
