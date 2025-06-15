@@ -216,8 +216,6 @@ AS $$
 DECLARE
     v_current_user_id INT := get_current_user_id();
 BEGIN
-    -- PERFORM check_current_user_exists();
-
     -- Only System & Access Administrator can create users
     IF v_current_user_id <> -1 AND NOT current_user_is_access_admin() THEN
         RAISE EXCEPTION 'Permission denied: Only Access Administrator can create users';
@@ -235,7 +233,10 @@ RETURNS TABLE (id INTEGER, name VARCHAR, email VARCHAR, role_ids INTEGER[], role
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    PERFORM check_current_user_exists();
+    -- Only System & Access Administrator can see all users
+    IF v_current_user_id <> -1 AND NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Only Access Administrator can create users';
+    END IF;
 
     -- All users can view user list but password and 2FA are not exposed here
     RETURN QUERY
@@ -306,10 +307,10 @@ BEGIN
     PERFORM check_current_user_exists();
 
     -- Normal users can only view their own user info unless they have local roles for other teams, or are Access Admin
-    -- IF v_current_user_id <> p_user_id
-    --     AND NOT current_user_is_access_admin() THEN
-    --     RAISE EXCEPTION 'Permission denied: Cannot view other users'' details';
-    -- END IF;
+    IF v_current_user_id <> p_user_id
+        AND NOT current_user_is_access_admin() THEN
+        RAISE EXCEPTION 'Permission denied: Cannot view other users'' details';
+    END IF;
 
     RETURN QUERY
     SELECT
@@ -342,14 +343,14 @@ BEGIN
     PERFORM check_current_user_exists();
 
     -- Only Access Administrator or the user himself can get details by email
-    -- IF NOT current_user_is_access_admin() THEN
-    --     IF NOT EXISTS (
-    --         SELECT 1 FROM users
-    --         WHERE id = v_current_user_id AND email = p_email
-    --     ) THEN
-    --         RAISE EXCEPTION 'Permission denied: Cannot view other users by email';
-    --     END IF;
-    -- END IF;
+    IF NOT current_user_is_access_admin() THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM users
+            WHERE id = v_current_user_id AND email = p_email
+        ) THEN
+            RAISE EXCEPTION 'Permission denied: Cannot view other users by email';
+        END IF;
+    END IF;
 
     RETURN QUERY
     SELECT
