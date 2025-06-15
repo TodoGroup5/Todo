@@ -1,10 +1,7 @@
-import type { ApiResponse, CrudOptions, TokenProvider } from "./types";
-import { JWTTokenProvider } from "./tokenProvider";
+import type { ApiResponse, CrudOptions } from "./types";
 import { baseUrl } from "../utility/deployment";
 export class CrudService {
 	private static readonly baseUrl = baseUrl();
-																
-	private static tokenProvider: TokenProvider = new JWTTokenProvider();
 
 	private static getHeaders(customHeaders?: Record<string, string>): Record<string, string> {
 		const headers: Record<string, string> = {
@@ -12,10 +9,6 @@ export class CrudService {
 			...customHeaders,
 		};
 
-		const token = this.tokenProvider.getToken();
-		if (token) {
-			headers["Authorization"] = `Bearer ${token}`;
-		}
 		return headers;
 	}
 
@@ -74,20 +67,5 @@ export class CrudService {
 	}
 	static customRequest<R>(endpoint: string, method: string, body?: any, options?: CrudOptions): Promise<ApiResponse<R>> {
 		return this.makeRequest<R>(endpoint, method, body, options);
-	}
-
-
-	//----- Token utils -----//
-	static setToken(token: string): void {
-		this.tokenProvider.setToken(token);
-	}
-	static getToken(): string | null {
-		return this.tokenProvider.getToken();
-	}
-	static clearToken(): void {
-		this.tokenProvider.removeToken();
-	}
-	static isAuthenticated(): boolean {
-		return !!this.tokenProvider.getToken();
 	}
 }

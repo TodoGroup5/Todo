@@ -7,7 +7,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import router from "./endpoints";
-import { attachCsrfToken, verifyCsrfToken } from "./lib/csrf";
 import { isProductionEnvironment } from "./lib/deployment";
 import { createRateLimiter } from "./lib/rateLimiter";
 
@@ -24,15 +23,18 @@ if (!isProductionEnvironment()) {
 const app = express();
 const PORT = Number(process.env.PORT ?? 3000);
 
-app.use(cors());
-// app.use(attachCsrfToken());
-// app.use(verifyCsrfToken());
+app.use(cors({
+  origin: isProductionEnvironment() ? 'https://ec2-16-28-30-48.af-south-1.compute.amazonaws.com' : 'localhost:3000',
+  methods: ['GET', 'PUT', 'POST', 'DELETE'],
+  credentials: true,
+  allowedHeaders: []
+}));
 
-const limiter = createRateLimiter({
-  windowInMilliseconds: 60_000,
-  maximumAllowedRequests: 60,
-});
-app.use(limiter.middleware());
+// const limiter = createRateLimiter({
+//   windowInMilliseconds: 60_000,
+//   maximumAllowedRequests: 60,
+// });
+// app.use(limiter.middleware());
 
 app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));

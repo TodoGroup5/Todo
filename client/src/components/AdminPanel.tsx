@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CrudService } from '../api/crudService.ts';
 
 interface User {
@@ -40,7 +40,6 @@ interface TeamMember {
 
 const AdminPanel: React.FC = () => {
 	const [users, setUsers] = useState<User[]>([]);
-	const [loading, setLoading] = useState(true);
 	const [updateLoading, setUpdateLoading] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [globalRoles, setGlobalRoles] = useState<Role[]>([]);
@@ -82,8 +81,6 @@ const AdminPanel: React.FC = () => {
 			setUsers(usersData.slice(1));
 		} catch (err) {
 			console.log('Failed to fetch users', err);
-		} finally {
-			setLoading(false);
 		}
 	}, []);
 
