@@ -232,6 +232,8 @@ CREATE OR REPLACE FUNCTION get_all_users()
 RETURNS TABLE (id INTEGER, name VARCHAR, email VARCHAR, role_ids INTEGER[], role_names VARCHAR[])
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
 BEGIN
     -- Only System & Access Administrator can see all users
     IF v_current_user_id <> -1 AND NOT current_user_is_access_admin() THEN

@@ -101,8 +101,10 @@ const TeamLeadPanel: React.FC = () => {
       if (isTeamLead()) {
         endpoint = `/team/${selectedTeam.team_id}/todos`;
       } else {
-        endpoint = `/user/${user.id}/todos?team_id=${selectedTeam.team_id}`;
+        endpoint = `/team/${selectedTeam.team_id}/user/${user.id}/todos`;
       }
+
+      console.log(endpoint);
       
       const response = await CrudService.read<Todo[]>(endpoint);
       console.log("TODOS RESPONSE:", response.data);
