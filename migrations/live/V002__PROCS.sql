@@ -1263,10 +1263,8 @@ CREATE OR REPLACE PROCEDURE assign_global_role(p_user_id INTEGER, p_role_id INTE
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    PERFORM check_current_user_exists();
-
-    -- Only Access Administrator can assign global roles
-    IF NOT current_user_is_access_admin() THEN
+    -- Only System + Access Administrator can assign global roles
+    IF v_current_user_id <> -1 AND NOT current_user_is_access_admin() THEN
         RAISE EXCEPTION 'Permission denied: Only Access Administrator can assign global roles';
     END IF;
 
