@@ -75,6 +75,7 @@ const AuthPage: React.FC = () => {
       
     } catch (err) {
       setError('Login failed. Please try again.');
+      setLoginData({ email: '', password: '' });
     } finally {
       setLoading(false);
     }
