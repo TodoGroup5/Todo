@@ -149,7 +149,7 @@ router.post('/signup', async (req: Request, res: Response) => {
     //----- Create user -----//
     const password_hash = hashPassword(password);
     
-    const createRes = await callDB(dbPool, -1, { type: 'func', call: 'create_user', params: { name, email, password_hash, two_fa_secret: ""} });
+    const createRes = await callDB(dbPool, -1, { type: 'func', call: 'create_user', params: { name, email, password_hash, two_fa_secret: "", two_fa_saved: false} });
     if(!callSuccessWithData<Post_UserCreate>(createRes)) {
         return sendResponse(res, { status: 'failed', error: 'userCreateFailed', data: createRes }, 400);
     }
@@ -219,8 +219,8 @@ router.post('/login', async (req: Request, res: Response) => {
         qrCodeUrl = await QRCode.toDataURL(otpauth_url!);
 
         //----- Update 2FA secret in the database -----//
-        const update2faRes = await callDB(dbPool, -1, { type: 'proc', call: 'update_user', params: { name, two_fa_secret: new_2fa_secret, two_fa_saved: false } });
-        if(!callSuccessWithData<Post_UserCreate>(update2faRes)) {
+        const update2faRes = await callDB(dbPool, -1, { type: 'proc', call: 'update_user', params: { user_id, two_fa_secret: new_2fa_secret, two_fa_saved: false } });
+        if(update2faRes.status === "failed") {
             return sendResponse(res, { status: 'failed', error: 'update2faFailed', data: update2faRes }, 400);
         }
     }
@@ -263,8 +263,8 @@ router.post('/login/verify', async (req: Request, res: Response) => {
     }
 
     //----- Update 2FA secret in the database -----//
-    const update2faRes = await callDB(dbPool, -1, { type: 'proc', call: 'update_user', params: { name, two_fa_saved: true } });
-    if(!callSuccessWithData<Post_UserCreate>(update2faRes)) {
+    const update2faRes = await callDB(dbPool, -1, { type: 'proc', call: 'update_user', params: { user_id, two_fa_saved: true } });
+    if(update2faRes.status === "failed") {
         return sendResponse(res, { status: 'failed', error: 'update2faSavedFailed', data: update2faRes }, 400);
     }
 

@@ -263,7 +263,7 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION get_user_secrets_by_email(p_email VARCHAR)
-RETURNS TABLE (id INTEGER, name VARCHAR, email VARCHAR, password_hash VARCHAR, two_fa_secret VARCHAR)
+RETURNS TABLE (id INTEGER, name VARCHAR, email VARCHAR, password_hash VARCHAR, two_fa_secret VARCHAR, two_fa_saved BOOLEAN)
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -421,7 +421,7 @@ CREATE OR REPLACE PROCEDURE update_user(
     p_email VARCHAR DEFAULT NULL,
     p_password_hash VARCHAR DEFAULT NULL,
     p_two_fa_secret VARCHAR DEFAULT NULL,
-    p_two_fa_saved VARCHAR DEFAULT NULL
+    p_two_fa_saved BOOLEAN DEFAULT FALSE
 )
 LANGUAGE plpgsql
 AS $$
@@ -458,15 +458,15 @@ BEGIN
         name = COALESCE(p_name, name),
         email = COALESCE(p_email, email),
         password_hash = CASE
-            WHEN v_current_user_id = -1 OR v_is_admin THEN COALESCE(p_password_hash, password_hash)
+            WHEN v_current_user_id = -1 OR current_user_is_access_admin() THEN COALESCE(p_password_hash, password_hash)
             ELSE password_hash
         END,
         two_fa_secret = CASE
-            WHEN v_current_user_id = -1 OR v_is_admin THEN COALESCE(p_two_fa_secret, two_fa_secret)
+            WHEN v_current_user_id = -1 OR current_user_is_access_admin() THEN COALESCE(p_two_fa_secret, two_fa_secret)
             ELSE two_fa_secret
         END,
         two_fa_saved = CASE
-            WHEN v_current_user_id = -1 OR v_is_admin THEN COALESCE(p_two_fa_saved, two_fa_saved)
+            WHEN v_current_user_id = -1 OR current_user_is_access_admin() THEN COALESCE(p_two_fa_saved, two_fa_saved)
             ELSE two_fa_saved
         END
     WHERE id = p_user_id;
@@ -1262,6 +1262,8 @@ $$;
 CREATE OR REPLACE PROCEDURE assign_global_role(p_user_id INTEGER, p_role_id INTEGER)
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    v_current_user_id INT := get_current_user_id();
 BEGIN
     -- Only System + Access Administrator can assign global roles
     IF v_current_user_id <> -1 AND NOT current_user_is_access_admin() THEN

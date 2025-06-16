@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { CallName, ParamValidator } from "./db.js";
 
 export const z_str = z.string().max(2048);
+export const z_bool = z.boolean();
 export const z_str_nonempty = z_str.nonempty();
 export const z_date = z.coerce.date();
 export const z_timestamp = z.coerce.date().or(z.string());
@@ -10,6 +11,7 @@ export const z_email = z_str.email();
 
 
 export const z_str_opt = z_str.optional();
+export const z_bool_opt = z_bool.optional();
 export const z_date_opt = z_date.optional();
 export const z_timestamp_opt = z_timestamp.optional();
 export const z_id_opt = z_id.optional();
@@ -80,7 +82,8 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
         ["name", z_str_nonempty],
         ["email", z_email],
         ["password_hash", z_str_nonempty],
-        ["two_fa_secret", z_str_opt]
+        ["two_fa_secret", z_str_opt],
+        ["two_fa_saved", z_bool_opt]
     ],
 
     get_user_secrets:           [["user_id", z_id]],
@@ -123,6 +126,6 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
         ["email", z_email_opt],
         ["password_hash", z_str_opt],
         ["two_fa_secret", z_str_opt],
-        ["two_fa_saved", z_str_opt]
+        ["two_fa_saved", z_bool_opt]
     ]
 };

@@ -13,6 +13,7 @@ const TwoFactorAuth: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const user_id = location.state?.user_id ?? "";
+  const otpauthURL = location.state?.qrCodeUrl ?? ""; // Add this line to get otpauthURL
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,18 +45,69 @@ const TwoFactorAuth: React.FC = () => {
     setCode(value);
   };
 
-  return (
-    <>
-    {isAuthenticated ? (<div>
-            <h1>You are already authenticated</h1>
-            <button onClick={()=> navigate('/dashboard')}>
-                Go back to dashboard
+  // If user is already authenticated, show authenticated message
+  if (isAuthenticated) {
+    return (
+      <div>
+        <h1>You are already authenticated</h1>
+        <button onClick={() => navigate('/dashboard')}>
+          Go back to dashboard
+        </button>
+      </div>
+    );
+  }
+
+  // If no user_id, show login message
+  if (!user_id) {
+    return (
+      <div>
+        <h1>Please login first</h1>
+        <button onClick={() => navigate('/login')}>
+          Go to login
+        </button>
+      </div>
+    );
+  }
+
+  // If we have otpauthURL, show QR code setup
+  if (otpauthURL.length > 0) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card">
+          <form onSubmit={handleSubmit} className="auth-form">
+            <OTPQRCode otpauthUrl={otpauthURL} />
+            <div className="form-group">
+              <input
+                id="code"
+                type="text"
+                value={code}
+                onChange={handleCodeChange}
+                placeholder="123456"
+                maxLength={6}
+                required
+                disabled={loading}
+                className="code-input"
+              />
+            </div>
+
+            {error && <div className="error-message">{error}</div>}
+
+            <button 
+              type="submit" 
+              className="btn-primary"
+              disabled={loading || code.length !== 6}
+            >
+              {loading ? 'Verifying...' : 'Verify'}
             </button>
-        </div>):
-    (
-      <>
-      {user_id ? (
-        <div className="auth-container">
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Default case - show verification form without QR code
+  return (
+    <div className="auth-container">
       <div className="auth-card">
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
@@ -83,20 +135,8 @@ const TwoFactorAuth: React.FC = () => {
             {loading ? 'Verifying...' : 'Verify'}
           </button>
         </form>
-
       </div>
     </div>
-      ):(
-        <div>
-            <h1>Please login first</h1>
-            <button onClick={()=> navigate('/login')}>
-                Go back to dashboard
-            </button>
-        </div>
-      )}
-      </>
-    )}
-    </>
   );
 };
 
