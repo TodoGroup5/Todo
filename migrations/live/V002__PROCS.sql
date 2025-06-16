@@ -216,16 +216,22 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     v_current_user_id INT := get_current_user_id();
+    v_user_id INT;
 BEGIN
     -- Only System & Access Administrator can create users
     IF v_current_user_id <> -1 AND NOT current_user_is_access_admin() THEN
         RAISE EXCEPTION 'Permission denied: Only Access Administrator can create users';
     END IF;
 
-    RETURN QUERY
+    -- Insert user and capture ID
     INSERT INTO users (name, email, password_hash, two_fa_secret, two_fa_saved)
     VALUES (p_name, p_email, p_password_hash, p_two_fa_secret, p_two_fa_saved)
-    RETURNING id;
+    RETURNING id INTO v_user_id;
+
+    -- Assign default global role (User = 1)
+    CALL assign_global_role(v_user_id, 1);
+
+    RETURN QUERY SELECT v_user_id;
 END;
 $$;
 
