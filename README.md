@@ -38,3 +38,7 @@ npm install
 # Run frontend server
 npm run dev
 ```
+
+# Demo Info
+
+Use `alice@example.com` with password `password` (don't worry you can't actually create a password like this during sign up). This is an admin account, thus you will be able to do whatever you need to. Feel free to create other accounts and whatnot :)
