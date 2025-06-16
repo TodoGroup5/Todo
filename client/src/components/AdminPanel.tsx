@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CrudService } from '../api/crudService.ts';
+import { useAuth } from '../contexts/AuthContext.tsx';
 
 interface User {
 	id: number;
@@ -30,6 +31,7 @@ interface Role {
 }
 
 const AdminPanel: React.FC = () => {
+    const { user } = useAuth();
 	const [users, setUsers] = useState<User[]>([]);
 	const [updateLoading, setUpdateLoading] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -70,7 +72,8 @@ const AdminPanel: React.FC = () => {
 			const usersData: User[] = Array.isArray(response.data?.data)
 				? response.data.data
 				: [];
-			setUsers(usersData.slice(1));
+			setUsers(usersData.slice(1).filter(fetchedUser => fetchedUser.id != user.id));
+
 		} catch (err) {
 			console.log('Failed to fetch users', err);
 		}
