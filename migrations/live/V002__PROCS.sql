@@ -209,7 +209,7 @@ CREATE OR REPLACE FUNCTION create_user(
     p_email VARCHAR,
     p_password_hash VARCHAR,
     p_two_fa_secret VARCHAR DEFAULT NULL,
-    p_two_fa_saved VARCHAR DEFAULT FALSE
+    p_two_fa_saved BOOLEAN DEFAULT FALSE
 )
 RETURNS TABLE(user_id INT)
 LANGUAGE plpgsql
@@ -421,7 +421,6 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     v_current_user_id INT := get_current_user_id();
-    v_is_admin BOOLEAN := current_user_is_access_admin();
 BEGIN
     -- Skip existence check if called by the System user
     IF v_current_user_id <> -1 THEN
@@ -435,14 +434,14 @@ BEGIN
 
     ELSIF v_current_user_id <> p_user_id THEN
         -- User updating someone else
-        IF NOT v_is_admin THEN
+        IF NOT current_user_is_access_admin() THEN
             RAISE EXCEPTION 'Permission denied: Cannot update other users'' details';
         END IF;
 
     ELSE
         -- User updating self
         IF (p_password_hash IS NOT NULL OR p_two_fa_secret IS NOT NULL)
-            AND NOT v_is_admin THEN
+            AND NOT current_user_is_access_admin() THEN
             RAISE EXCEPTION 'Permission denied: Cannot update password or 2FA secret';
         END IF;
     END IF;
