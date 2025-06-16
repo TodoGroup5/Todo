@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(64) NOT NULL,
     email VARCHAR(256) UNIQUE NOT NULL,
     password_hash VARCHAR(512) NOT NULL,
-    two_fa_secret VARCHAR(256)
+    two_fa_secret VARCHAR(256),
+    two_fa_saved BOOLEAN NOT NULL DEFAULT FALSE -- Whether they successfully logged in at least once with the given 2FA secret
 );
 
 CREATE TABLE IF NOT EXISTS teams (

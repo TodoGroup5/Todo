@@ -78,13 +78,12 @@ function consReqHandler(type: CallType, call: CallName, urlParamFormatter: Param
             //----- Check JWT -----//
             const token = checkJWTAuth(req);
             if (token == null) {
-                sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
-                return;
+                return sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
             }
             const { user_id } = token;
 
             //----- Return -----//
-            sendResponse(
+            return sendResponse(
                 res,
                 await callDB(dbPool, user_id, {
                     type,
@@ -97,7 +96,7 @@ function consReqHandler(type: CallType, call: CallName, urlParamFormatter: Param
             );
         } catch (err) { // Catch-all
             console.error(err);
-            sendResponse(res, { status: 'failed', error: 'internalServerError' }, 500);
+            return sendResponse(res, { status: 'failed', error: 'internalServerError' }, 500);
         }
     };
 }
@@ -126,7 +125,7 @@ router.get('/health', (req: Request, res: Response) => {
 });
 
 //---------- Authentication ----------//
-type Get_UserSecrets = { id: number; name: string; email: string; password_hash: string; two_fa_secret: string };
+type Get_UserSecrets = { id: number; name: string; email: string; password_hash: string; two_fa_secret: string, two_fa_saved: boolean };
 type Post_UserCreate = { user_id: number; };
 
 function callSuccessWithData<S>(res: JSONResult<unknown[], unknown>): res is { status: 'success', data: { 0: S } & Array<S> } {
@@ -138,37 +137,26 @@ router.post('/signup', async (req: Request, res: Response) => {
     const expected: ParamValidator[] = [ ["name", z_str_nonempty], ["email", z_email], ["password", z_str_nonempty] ];
     const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
     if (parseRes.status === 'failed') {
-        sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
     }
     const [name, email, password] = parseRes.params as string[];
 
     //----- Check password complexity -----//
     if (!validatePassword(password)) {
-        sendResponse(res, { status: 'failed', error: 'passwordInsecure' }, 400);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'passwordInsecure' }, 400);
     }
     
     //----- Create user -----//
     const password_hash = hashPassword(password);
-    // Generate 2FA secret immediately upon user signup
-    const secret = speakeasy.generateSecret({
-        name: `TodoApp-${name}`,
-        issuer: 'TodoApp',
-        length: 20
-    });
-    const two_fa_secret = secret.base32;
-    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!);
     
-    const createRes = await callDB(dbPool, -1, { type: 'func', call: 'create_user', params: { name, email, password_hash, two_fa_secret} });
+    const createRes = await callDB(dbPool, -1, { type: 'func', call: 'create_user', params: { name, email, password_hash, two_fa_secret: ""} });
     if(!callSuccessWithData<Post_UserCreate>(createRes)) {
-        sendResponse(res, { status: 'failed', error: 'userCreateFailed', data: createRes }, 400);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'userCreateFailed', data: createRes }, 400);
     }
 
     const { user_id } = createRes.data[0];
     //----- Return -----//
-    sendResponse(res, { status: 'success', data: { user_id, qrCodeUrl } });
+    return sendResponse(res, { status: 'success', data: { user_id } });
 });
 
 router.post('/signup/confirm', async (req: Request, res: Response) => {
@@ -176,20 +164,18 @@ router.post('/signup/confirm', async (req: Request, res: Response) => {
     const expected: ParamValidator[] = [ ["code", z_str_nonempty], ["user_id", z_id] ];
     const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
     if (parseRes.status === 'failed') {
-        sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
     }
     const [ code, user_id ] = parseRes.params as string[];
 
     const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets', params: { user_id } });
     if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
-        sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
     }
 
     const { two_fa_secret, email } = userRes.data[0];
 
-    // Verify the 2FA token
+    //----- Verify the 2FA token -----//
     const verified = speakeasy.totp.verify({
         secret: two_fa_secret,
         encoding: 'base32',
@@ -202,7 +188,7 @@ router.post('/signup/confirm', async (req: Request, res: Response) => {
     }
 
     //----- Return -----//
-    sendResponse(res, { status: 'success'});
+    return sendResponse(res, { status: 'success'});
 });
 
 router.post('/login', async (req: Request, res: Response) => {
@@ -210,43 +196,57 @@ router.post('/login', async (req: Request, res: Response) => {
     const expected: ParamValidator[] = [["email", z_email], ["password", z_str_nonempty]];
     const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
     if (parseRes.status === 'failed') {
-        sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
     }
 
     //----- Get user secrets -----//
     const [email, password] = parseRes.params as string[];
     const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets_by_email', params: { email } });
     if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
-        sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
     }
+    const { name, id: user_id, password_hash, two_fa_secret, two_fa_saved } = userRes.data[0];
 
-    const { id: user_id, password_hash } = userRes.data[0];
+    //----- Handle first login - Display 2FA -----//
+    let qrCodeUrl: string = "";
+    if (two_fa_secret === "" || !two_fa_saved) {
+        // Generate secret + QR
+        const { base32: new_2fa_secret, otpauth_url } = speakeasy.generateSecret({
+            name: `TodoApp-${name}`,
+            issuer: 'TodoApp',
+            length: 20
+        });
+        qrCodeUrl = await QRCode.toDataURL(otpauth_url!);
+
+        //----- Update 2FA secret in the database -----//
+        const update2faRes = await callDB(dbPool, -1, { type: 'proc', call: 'update_user', params: { name, two_fa_secret: new_2fa_secret, two_fa_saved: false } });
+        if(!callSuccessWithData<Post_UserCreate>(update2faRes)) {
+            return sendResponse(res, { status: 'failed', error: 'update2faFailed', data: update2faRes }, 400);
+        }
+    }
 
     //----- Check hashes match -----//
     const isValid = comparePassHash(password, password_hash);
     if (!isValid) {
-        sendResponse(res, { status: 'failed', error: 'incorrectPassword' }, 401);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'incorrectPassword' }, 401);
     }
-    sendResponse(res, { status: 'success', data: { user_id } });
+    return sendResponse(res, { status: 'success', data: { user_id, qrCodeUrl } });
 });
 
+
+// Verify 2FA post-login
 router.post('/login/verify', async (req: Request, res: Response) => {
     const expected: ParamValidator[] = [ ["code", z_str_nonempty], ["user_id", z_id] ];
     const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
     if (parseRes.status === 'failed') {
-        sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
     }
     const [ code, user_id ] = parseRes.params as string[];
 
-    //find user
+    //----- Find user -----//
     const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets', params: { user_id } });
     if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
-        sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
     }
 
     const { two_fa_secret, email, name } = userRes.data[0];
@@ -261,9 +261,16 @@ router.post('/login/verify', async (req: Request, res: Response) => {
     if (!verified) {
         return sendResponse(res, { status: 'failed', error: 'incorrect 2fa code' }, 401);
     }
+
+    //----- Update 2FA secret in the database -----//
+    const update2faRes = await callDB(dbPool, -1, { type: 'proc', call: 'update_user', params: { name, two_fa_saved: true } });
+    if(!callSuccessWithData<Post_UserCreate>(update2faRes)) {
+        return sendResponse(res, { status: 'failed', error: 'update2faSavedFailed', data: update2faRes }, 400);
+    }
+
     //----- Return -----//
     setJWT(res, parseInt(user_id), email);
-    sendResponse(res, { status: 'success', data: { user_id, name } });
+    return sendResponse(res, { status: 'success', data: { user_id, name } });
 });
 
 router.post('/logout', async (req: Request, res: Response) => {
@@ -281,8 +288,7 @@ router.post('/change-password', async (req: Request, res: Response) => {
     //----- Check JWT -----//
     const token = checkJWTAuth(req);
     if (token == null) {
-        sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
     }
     const { user_id: jwt_user_id } = token;
 
@@ -290,29 +296,25 @@ router.post('/change-password', async (req: Request, res: Response) => {
     const expected: ParamValidator[] = [ ['user_id', z_id], ['new_password', z_str_nonempty], ['old_password', z_str_nonempty] ];
     const parseRes: ParseParamsResult = parseParams({ params: req.body }, expected);
     if (parseRes.status === 'failed') {
-        sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'invalidParams', data: parseRes.invalid }, 400);
     };
     const [ user_id, new_password, old_password ] = parseRes.params as string[];
 
     //----- Check password complexity -----//
     if (!validatePassword(new_password)) {
-        sendResponse(res, { status: 'failed', error: 'passwordInsecure' }, 400);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'passwordInsecure' }, 400);
     }
 
     //----- Get user secrets -----//
     const userRes = await callDB(dbPool, jwt_user_id, { type: 'func', call: 'get_user_secrets', params: { user_id } });
     if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
-        sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
     }
     const { password_hash: old_hash } = userRes.data[0];
 
     //----- Check old password ----//
     if (!comparePassHash(old_password, old_hash)) {
-        sendResponse(res, { status: 'failed', error: 'incorrectPassword' }, 401);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'incorrectPassword' }, 401);
     }
 
     //----- Hash new password ----//
@@ -321,11 +323,10 @@ router.post('/change-password', async (req: Request, res: Response) => {
     //----- Update user -----//
     const updateRes = await callDB(dbPool, jwt_user_id, { type: 'proc', call: 'update_user', params: { user_id, password_hash: new_hash } });
     if (updateRes.status === "failed") {
-        sendResponse(res, { status: 'failed', error: 'userUpdateFailed' }, 404);
-        return;
+        return sendResponse(res, { status: 'failed', error: 'userUpdateFailed' }, 404);
     }
 
-    sendResponse(res, { status: "success" });
+    return sendResponse(res, { status: "success" });
 });
 
 // Returns { isAuthenticated: true } if the user has a valid JWT
@@ -335,25 +336,23 @@ router.get('/auth', async (req: Request, res: Response) => {
         //----- Check JWT -----//
         const token = checkJWTAuth(req);
         if (token == null) {
-            sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
-            return;
+            return sendResponse(res, { status: 'failed', error: 'invalidJWT' }, 401);
         }
         const { user_id } = token;
 
         //find user
         const userRes = await callDB(dbPool, -1, { type: 'func', call: 'get_user_secrets', params: { user_id } });
         if (!callSuccessWithData<Get_UserSecrets>(userRes)) {
-            sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
-            return;
+            return sendResponse(res, { status: 'failed', error: 'userNotFound' }, 404);
         }
 
         const { name } = userRes.data[0];
 
-        sendResponse<AuthResponse, AuthResponse>(res, { status: 'success', data: { isAuthenticated: (token != null), username: name, roles:[], user_id } }, 200);
+        return sendResponse<AuthResponse, AuthResponse>(res, { status: 'success', data: { isAuthenticated: (token != null), username: name, roles:[], user_id } }, 200);
 
     } catch (err) { // Catch-all
         console.error(err);
-        sendResponse(res, { status: 'failed', error: 'internalServerError' }, 500);
+        return sendResponse(res, { status: 'failed', error: 'internalServerError' }, 500);
     }
 });
 

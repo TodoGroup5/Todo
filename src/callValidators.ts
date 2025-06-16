@@ -122,6 +122,7 @@ export const VALIDATOR_SETS: { [key in CallName]: ParamValidator[] } = {
         ["name", z_str_opt],
         ["email", z_email_opt],
         ["password_hash", z_str_opt],
-        ["two_fa_secret", z_str_opt]
+        ["two_fa_secret", z_str_opt],
+        ["two_fa_saved", z_str_opt]
     ]
 };

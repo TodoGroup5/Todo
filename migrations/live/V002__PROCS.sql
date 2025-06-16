@@ -208,7 +208,8 @@ CREATE OR REPLACE FUNCTION create_user(
     p_name VARCHAR,
     p_email VARCHAR,
     p_password_hash VARCHAR,
-    p_two_fa_secret VARCHAR DEFAULT NULL
+    p_two_fa_secret VARCHAR DEFAULT NULL,
+    p_two_fa_saved VARCHAR DEFAULT FALSE
 )
 RETURNS TABLE(user_id INT)
 LANGUAGE plpgsql
@@ -222,8 +223,8 @@ BEGIN
     END IF;
 
     RETURN QUERY
-    INSERT INTO users (name, email, password_hash, two_fa_secret)
-    VALUES (p_name, p_email, p_password_hash, p_two_fa_secret)
+    INSERT INTO users (name, email, password_hash, two_fa_secret, two_fa_saved)
+    VALUES (p_name, p_email, p_password_hash, p_two_fa_secret, p_two_fa_saved)
     RETURNING id;
 END;
 $$;
@@ -266,14 +267,14 @@ BEGIN
     END IF;
 
     RETURN QUERY
-    SELECT u.id, u.name, u.email, u.password_hash, u.two_fa_secret
+    SELECT u.id, u.name, u.email, u.password_hash, u.two_fa_secret, u.two_fa_saved
     FROM users u
     WHERE u.email = p_email;
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION get_user_secrets(p_user_id INTEGER)
-RETURNS TABLE (id INTEGER, name VARCHAR, email VARCHAR, password_hash VARCHAR, two_fa_secret VARCHAR)
+RETURNS TABLE (id INTEGER, name VARCHAR, email VARCHAR, password_hash VARCHAR, two_fa_secret VARCHAR, two_fa_saved BOOLEAN)
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -285,7 +286,7 @@ BEGIN
     END IF;
 
     RETURN QUERY
-    SELECT u.id, u.name, u.email, u.password_hash, u.two_fa_secret
+    SELECT u.id, u.name, u.email, u.password_hash, u.two_fa_secret, u.two_fa_saved
     FROM users u
     WHERE u.id = p_user_id;
 END;
@@ -411,7 +412,8 @@ CREATE OR REPLACE PROCEDURE update_user(
     p_name VARCHAR DEFAULT NULL,
     p_email VARCHAR DEFAULT NULL,
     p_password_hash VARCHAR DEFAULT NULL,
-    p_two_fa_secret VARCHAR DEFAULT NULL
+    p_two_fa_secret VARCHAR DEFAULT NULL,
+    p_two_fa_saved VARCHAR DEFAULT NULL
 )
 LANGUAGE plpgsql
 AS $$
@@ -455,53 +457,15 @@ BEGIN
         two_fa_secret = CASE
             WHEN v_current_user_id = -1 OR v_is_admin THEN COALESCE(p_two_fa_secret, two_fa_secret)
             ELSE two_fa_secret
+        END,
+        two_fa_saved = CASE
+            WHEN v_current_user_id = -1 OR v_is_admin THEN COALESCE(p_two_fa_saved, two_fa_saved)
+            ELSE two_fa_saved
         END
     WHERE id = p_user_id;
 END;
 $$;
 
-
--- CREATE OR REPLACE PROCEDURE update_user(
---     p_user_id INTEGER,
---     p_name VARCHAR DEFAULT NULL,
---     p_email VARCHAR DEFAULT NULL,
---     p_password_hash VARCHAR DEFAULT NULL,
---     p_two_fa_secret VARCHAR DEFAULT NULL
--- )
--- LANGUAGE plpgsql
--- AS $$
--- DECLARE
---     v_current_user_id INT := get_current_user_id();
--- BEGIN
---     -- PERFORM check_current_user_exists();
-
---     -- Only Access Administrator can update other users
---     -- Normal user can update only own details except password_hash and two_fa_secret
---     IF v_current_user_id <> p_user_id AND v_current_user_id <> -1 THEN
---         IF NOT current_user_is_access_admin() THEN
---             RAISE EXCEPTION 'Permission denied: Cannot update other users'' details';
---         END IF;
---     ELSE
---         -- If current user updating self, deny updating password_hash and 2FA here for normal users
---         IF (p_password_hash IS NOT NULL OR p_two_fa_secret IS NOT NULL)
---             AND NOT current_user_is_access_admin() THEN
---             RAISE EXCEPTION 'Permission denied: Cannot update password or 2FA secret';
---         END IF;
---     END IF;
-
---     UPDATE users
---     SET
---         name = COALESCE(p_name, name),
---         email = COALESCE(p_email, email),
---         password_hash = CASE WHEN current_user_is_access_admin()
---                                  THEN COALESCE(p_password_hash, password_hash)
---                                  ELSE password_hash END,
---         two_fa_secret = CASE WHEN current_user_is_access_admin()
---                                  THEN COALESCE(p_two_fa_secret, two_fa_secret)
---                                  ELSE two_fa_secret END
---     WHERE id = p_user_id;
--- END;
--- $$;
 
 CREATE OR REPLACE PROCEDURE delete_user(p_user_id INTEGER)
 LANGUAGE plpgsql
