@@ -23,9 +23,6 @@ const Settings: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
   });
 
   useEffect(() => {
@@ -111,62 +108,6 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handlePasswordChange = async () => {
-    setUpdateLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
-      setErrorMessage('All password fields are required');
-      setUpdateLoading(false);
-      return;
-    }
-
-    if (formData.newPassword !== formData.confirmPassword) {
-      setErrorMessage('New passwords do not match');
-      setUpdateLoading(false);
-      return;
-    }
-
-    if (formData.newPassword.length < 6) {
-      setErrorMessage('New password must be at least 6 characters long');
-      setUpdateLoading(false);
-      return;
-    }
-
-    try {
-      const response = await CrudService.create(`/change-password`,  {
-        user_id: user.id,
-        new_password: formData.newPassword,
-        old_password: formData.currentPassword
-      });
-
-      if (response.error) { throw new Error("[FETCH]: " + response.error + "\n" + response.message); return; }
-      if (response.data == null) return;
-
-      console.log("PASSWORD CHANGE RESPONSE:", response.data);
-
-      if (response.data.status === 'failed') { throw new Error("[DATA]: " + response.data.error); return; }
-
-      setSuccessMessage('Password updated successfully!');
-      setFormData(prev => ({
-        ...prev,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      }));
-    } catch (err) {
-      console.log("Failed to update password", err);
-      setErrorMessage('Failed to update password');
-    } finally {
-      setUpdateLoading(false);
-      setTimeout(() => {
-        setSuccessMessage('');
-        setErrorMessage('');
-      }, 3000);
-    }
-  };
-
   const getPrimaryRole = (): string => {
     if ((userInfo?.role_names?.length ?? 0) === 0) return 'User';
     return userInfo.role_names[0];
@@ -229,49 +170,6 @@ const Settings: React.FC = () => {
               disabled={updateLoading}
             >
               {updateLoading ? 'Updating...' : 'Update Profile'}
-            </button>
-          </div>
-        </div>
-
-        <div className="panel-section">
-          <h3>Change Password</h3>
-          <div className="todo-form">
-            <div className="form-group">
-              <label htmlFor="currentPassword">Current Password</label>
-              <input
-                id="currentPassword"
-                type="password"
-                value={formData.currentPassword}
-                onChange={(e) => handleInputChange('currentPassword', e.target.value)}
-                placeholder="Enter current password"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="newPassword">New Password</label>
-              <input
-                id="newPassword"
-                type="password"
-                value={formData.newPassword}
-                onChange={(e) => handleInputChange('newPassword', e.target.value)}
-                placeholder="Enter new password"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="confirmPassword">Confirm New Password</label>
-              <input
-                id="confirmPassword"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                placeholder="Confirm new password"
-              />
-            </div>
-            <button 
-              onClick={handlePasswordChange} 
-              className="btn-primary"
-              disabled={updateLoading}
-            >
-              {updateLoading ? 'Updating...' : 'Change Password'}
             </button>
           </div>
         </div>

@@ -148,10 +148,7 @@ const AuthPage: React.FC = () => {
         role: 'user'
       });
       
-       // setIsLogin(true);
       set2FAMessage('Account created successfully. Set up 2FA by scanning the QR code.');
-      
-
     } catch (err) {
       console.log("Could not create user account", err);
       setError(err instanceof Error ? err.message : 'Failed to create account. Please try again.');
@@ -207,6 +204,7 @@ const AuthPage: React.FC = () => {
                   onChange={(e) => handleLoginInputChange('email', e.target.value)}
                   disabled={loading}
                   placeholder="Enter your email address"
+                  maxLength={256}
                 />
               </div>
               
@@ -219,6 +217,7 @@ const AuthPage: React.FC = () => {
                   onChange={(e) => handleLoginInputChange('password', e.target.value)}
                   disabled={loading}
                   placeholder="Enter your password"
+                  maxLength={256}
                 />
               </div>
 
@@ -243,6 +242,7 @@ const AuthPage: React.FC = () => {
                   onChange={(e) => handleSignupInputChange('name', e.target.value)}
                   disabled={loading}
                   placeholder="Choose a username"
+                  maxLength={64}
                 />
               </div>
 
@@ -255,6 +255,7 @@ const AuthPage: React.FC = () => {
                   onChange={(e) => handleSignupInputChange('email', e.target.value)}
                   disabled={loading}
                   placeholder="Enter your email"
+                  maxLength={256}
                 />
               </div>
               
@@ -267,6 +268,7 @@ const AuthPage: React.FC = () => {
                   onChange={(e) => handleSignupInputChange('password', e.target.value)}
                   disabled={loading}
                   placeholder="Create a password"
+                  maxLength={256}
                 />
               </div>
 
@@ -279,6 +281,7 @@ const AuthPage: React.FC = () => {
                   onChange={(e) => handleSignupInputChange('confirmPassword', e.target.value)}
                   disabled={loading}
                   placeholder="Confirm your password"
+                  maxLength={256}
                 />
               </div>
 
